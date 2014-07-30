@@ -78,7 +78,7 @@ def self_consistent_update(u_kn, N_k, f_k):
         The reduced potential energies.
     N_k : np.ndarray
         The number of samples.
-    f_k_Nozero : np.ndarray
+    f_k : np.ndarray
         The reduced free energies.
     Returns
     -------
@@ -98,7 +98,7 @@ def logspace_eqns(u_kn, N_k, f_k):
         The reduced potential energies.
     N_k : np.ndarray
         The number of samples.
-    f_k_Nozero : np.ndarray
+    f_k : np.ndarray
         The reduced free energies.
     Returns
     -------
@@ -122,7 +122,7 @@ def logspace_jacobian(u_kn, N_k, f_k):
         The reduced potential energies.
     N_k : np.ndarray
         The number of samples.
-    f_k_Nozero : np.ndarray
+    f_k : np.ndarray
         The reduced free energies.
     Returns
     -------
@@ -190,7 +190,7 @@ def mbar_gradient(u_kn, N_k, f_k):
         The reduced potential energies.
     N_k : np.ndarray
         The number of samples.
-    f_k_Nozero : np.ndarray
+    f_k : np.ndarray
         The reduced free energies.
 
     Returns
@@ -339,15 +339,5 @@ def get_actual_success(results, method):
         results["success"] = True
     if method == "L-BFGS-B" and results["status"] == 2:  # ABNORMAL_TERMINATION_IN_LNSRCH.  This probably means success but precision issues.
         results["success"] = True
-
     
     return results["success"]
-
-def mbar_protocol(u_kn_nonzero, N_k_nonzero, f_k_nonzero, method="hybr", tol=1E-20, options=None):
-    if method is not None:
-        return solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, method=method, tol=tol, options=options)
-    else:
-        print("The specified MBAR solver failed; reverting to BFGS followed by hybr")
-        f_k_nonzero, results = solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, method="L-BFGS-B")
-        f_k_nonzero, results = solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, method="hybr")
-        return f_k_nonzero, results

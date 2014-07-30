@@ -272,22 +272,9 @@ class MBAR:
                 print "Initial dimensionless free energies with method %s" % (initialize)
                 print "f_k = "
                 print self.f_k
-
-        # Solve nonlinear equations for free energies of states with samples.
-        try:
-            self.f_k[self.states_with_samples], results = mbar_solvers.mbar_protocol(self.u_kn[self.states_with_samples], self.N_k[self.states_with_samples], self.f_k[self.states_with_samples], method=method)
-        except RuntimeError:
-            self.f_k[self.states_with_samples], results = mbar_solvers.mbar_protocol(self.u_kn[self.states_with_samples], self.N_k[self.states_with_samples], self.f_k[self.states_with_samples], method=None)  # Use failsafe
-
-        # Recompute all free energies because those from states with zero samples are not correctly computed by Newton-Raphson.
-        # and store the log weights
-        if verbose:
-            print "Recomputing all free energies and log weights for storage"
-
-        # Note: need to recalculate only if max iterations is set to zero.
-        self.f_k[self.N_k <= 0] = mbar_solvers.self_consistent_update(self.u_kn, self.N_k, self.f_k)[self.N_k <= 0]
-        self.Log_W_nk = np.log(mbar_solvers.mbar_W_nk(u_kn, N_k, self.f_k))
-
+        
+        self.solve_mbar(method)
+        
         # Print final dimensionless free energies.
         if self.verbose:
             print "Final dimensionless free energies"
@@ -297,6 +284,25 @@ class MBAR:
         if self.verbose:
             print "MBAR initialization complete."
         return
+
+    def solve_mbar(self, method):
+        """Solve nonlinear equations for free energies of states with samples."""
+        try:
+            f_k_nonzero, results = mbar_solvers.solve_mbar(self.u_kn[self.states_with_samples], self.N_k[self.states_with_samples], self.f_k[self.states_with_samples], method=method)
+        except RuntimeError:
+            print("The specified MBAR solver failed; reverting to BFGS followed by hybr.")
+            f_k_nonzero, results = mbar_solvers.solve_mbar(self.u_kn[self.states_with_samples], self.N_k[self.states_with_samples], self.f_k[self.states_with_samples], method="L-BFGS-B")
+            f_k_nonzero, results = mbar_solvers.solve_mbar(self.u_kn[self.states_with_samples], self.N_k[self.states_with_samples], f_k_nonzero, method="hybr")
+        
+        self.f_k[self.states_with_samples] = f_k_nonzero
+        # Recompute all free energies because those from states with zero samples are not correctly computed by Newton-Raphson.
+        # and store the log weights
+        if self.verbose:
+            print "Recomputing all free energies and log weights for storage"
+
+        self.f_k[self.N_k <= 0] = mbar_solvers.self_consistent_update(self.u_kn, self.N_k, self.f_k)[self.N_k <= 0]
+        self.Log_W_nk = np.log(mbar_solvers.mbar_W_nk(self.u_kn, self.N_k, self.f_k))
+
 
     #=========================================================================
     def getWeights(self):
