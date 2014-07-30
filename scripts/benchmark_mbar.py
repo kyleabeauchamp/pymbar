@@ -14,9 +14,18 @@ def load_100_oscillators():
     x_n, u_kn, N_k_output = test.sample(N_k, mode='u_kn')
     return name, u_kn, N_k_output
 
+def load_100_exponentials():
+    name = "100 exponentials"
+    n_states = 100
+    n_samples = 250
+    rates = np.linspace(1, 3, n_states)
+    N_k = (np.ones(n_states) * n_samples).astype('int')
+    test = pymbar.testsystems.exponential_distributions.ExponentialTestCase(rates)
+    x_n, u_kn, N_k_output = test.sample(N_k, mode='u_kn')
+    return name, u_kn, N_k_output
 
 timedata = []
-for sysgen in [load_100_oscillators, pymbar.testsystems.pymbar_datasets.load_gas_data, pymbar.testsystems.pymbar_datasets.load_8proteins_data]:
+for sysgen in [load_100_oscillators, load_100_exponentials, pymbar.testsystems.pymbar_datasets.load_gas_data, pymbar.testsystems.pymbar_datasets.load_8proteins_data]:
     name, u_kn, N_k = sysgen()
     time0 = time.time()
     mbar = pymbar.MBAR(u_kn, N_k)
@@ -34,4 +43,5 @@ for sysgen in [load_100_oscillators, pymbar.testsystems.pymbar_datasets.load_gas
     timedata.append([name, "1.0", time.time() - time0, grad_norm, wsum, wdot])
 
 
-timedata = pd.DataFrame(timedata, columns=["name", "version", "time", "grad", "wsum", "wdot"])
+timedata = pd.DataFrame(timedata, columns=["name", "version", "time", "grad", "W.sum(0) - 1", "W.dot(N_k) - 1"])
+print timedata.to_string(float_format=lambda x: "%.3g" % x)
