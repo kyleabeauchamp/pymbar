@@ -310,6 +310,8 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, method="hybr", tol=1E-20,
 
     """
     u_kn_nonzero = u_kn_nonzero - u_kn_nonzero.min(0)  # This should improve precision of the scalar objective function.
+    #u_kn_nonzero += obj(f_k_nonzero[1:]) / float(N_k_nonzero.sum())
+    u_kn_nonzero += (logsumexp(f_k_nonzero - u_kn_nonzero.T, b=N_k_nonzero, axis=1)) - N_k_nonzero.dot(f_k_nonzero) / float(N_k_nonzero.sum())
     f_k_nonzero = f_k_nonzero - f_k_nonzero[0]  # Work with reduced dimensions with f_k[0] := 0
 
     pad = lambda x: np.pad(x, (1, 0), mode='constant')  # Helper function inserts zero before first element
@@ -321,7 +323,7 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, method="hybr", tol=1E-20,
     eqns = lambda x: logspace_eqns(u_kn_nonzero, N_k_nonzero, pad(x))[1:]  # Nonlinear equations to solve via root finder
     jac = lambda x: logspace_jacobian(u_kn_nonzero, N_k_nonzero, pad(x))[1:][:, 1:]  # Jacobian of nonlinear equations
 
-    if method in ["L-BFGS-B", "dogleg", "CG", "BFGS", "Newton-CG", "TNC", "trust-ncg", "SLSQP"]:
+    if method in ["L-BFGS-B", "dogleg", "CG", "BFGS", "Newton-CG", "TNC", "trust-ncg", "SLSQP"]:        
         results = scipy.optimize.minimize(obj, f_k_nonzero[1:], jac=grad, hess=hess, method=method, tol=tol, options=options)
         success = get_actual_success(results, method)
     else:
