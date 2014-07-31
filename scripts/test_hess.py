@@ -25,21 +25,21 @@ def load_exponentials(n_states):
 
 
 #name, u_kn, N_k = load_oscillators(150)
-name, u_kn, N_k = load_gas_data()
-#name, u_kn, N_k = load_8proteins_data()
+#name, u_kn, N_k = load_gas_data()
+name, u_kn, N_k = load_8proteins_data()
 u_kn = u_kn[N_k > 0]
 N_k = N_k[N_k > 0]
 
 n_states = N_k.shape
 time0 = time.time()
-f_k, results = pymbar.mbar_solvers.solve_mbar(u_kn, N_k, np.zeros(n_states), method="L-BFGS-B")
+f_k, results = pymbar.mbar_solvers.solve_mbar(u_kn, N_k, np.zeros(n_states), fast=True, method="L-BFGS-B")
+print(time.time() - time0)
+f_k, results = pymbar.mbar_solvers.solve_mbar(u_kn, N_k, f_k, fast=True, method="L-BFGS-B")
+print(time.time() - time0)
 f_k, results = pymbar.mbar_solvers.solve_mbar(u_kn, N_k, f_k, method="L-BFGS-B")
-#f_k, results = pymbar.mbar_solvers.solve_mbar(u_kn, N_k, f_k0, method="hybr")
-#f_k, results = pymbar.mbar_solvers.solve_mbar(u_kn, N_k, f_k0, method="lm")
-#f_k, results = pymbar.mbar_solvers.solve_mbar(u_kn, N_k, f_k, method="dogleg")
-#f_k, results = pymbar.mbar_solvers.solve_mbar(u_kn, N_k, f_k0, method="fixed-point", options=dict(maxiter=200), tol=1E-8)
-f_k - f_k0
-#f_k, results = pymbar.mbar_solvers.solve_mbar(u_kn, N_k, f_k, method="hybr")
+print(time.time() - time0)
+f_k, results = pymbar.mbar_solvers.solve_mbar(u_kn, N_k, f_k, method="hybr")
+print(time.time() - time0)
 dt = time.time() - time0
 W = pymbar.mbar_solvers.mbar_W_nk(u_kn, N_k, f_k)
 wsum = np.linalg.norm(W.sum(0) - 1.0)
