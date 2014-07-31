@@ -310,8 +310,9 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, method="hybr", tol=1E-20,
 
     """
     u_kn_nonzero = u_kn_nonzero - u_kn_nonzero.min(0)  # This should improve precision of the scalar objective function.
-    #u_kn_nonzero += obj(f_k_nonzero[1:]) / float(N_k_nonzero.sum())
+    # Subtract off a constant b_n from the 
     u_kn_nonzero += (logsumexp(f_k_nonzero - u_kn_nonzero.T, b=N_k_nonzero, axis=1)) - N_k_nonzero.dot(f_k_nonzero) / float(N_k_nonzero.sum())
+
     f_k_nonzero = f_k_nonzero - f_k_nonzero[0]  # Work with reduced dimensions with f_k[0] := 0
 
     pad = lambda x: np.pad(x, (1, 0), mode='constant')  # Helper function inserts zero before first element
@@ -326,6 +327,11 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, method="hybr", tol=1E-20,
     if method in ["L-BFGS-B", "dogleg", "CG", "BFGS", "Newton-CG", "TNC", "trust-ncg", "SLSQP"]:        
         results = scipy.optimize.minimize(obj, f_k_nonzero[1:], jac=grad, hess=hess, method=method, tol=tol, options=options)
         success = get_actual_success(results, method)
+    elif method == "fixed-point":
+        eqn_fixed_point = lambda x: logspace_eqns(u_kn_nonzero, N_k_nonzero, pad(x))[1:] + x  # Nonlinear equation for fixed point iteration
+        results = {}  # Fixed point doesn't have a nice dictionary output wrapper, so we make one.
+        results["x"] = scipy.optimize.fixed_point(eqn_fixed_point, f_k_nonzero[1:], xtol=tol, **options)
+        success = True
     else:
         results = scipy.optimize.root(eqns, f_k_nonzero[1:], jac=jac, method=method, tol=tol, options=options)
         success = get_actual_success(results, method)
@@ -339,7 +345,11 @@ def get_actual_success(results, method):
     """Hack to make scipy.optimize.minimize and scipy.optimize.root return consistent success flags."""
     if method == "hybr" and results["status"] == 3:  # Limited precision error--This probably means success for our objective.
         results["success"] = True
+    if method == "lm" and results["status"] == 7:  # xtol=0.000000 is too small, no further improvement in the approximate
+        results["success"] = True
     if method == "L-BFGS-B" and results["status"] == 2:  # ABNORMAL_TERMINATION_IN_LNSRCH.  This probably means success but precision issues.
         results["success"] = True
-    
+    if method == "trust-ncg" and results["status"] == 2:  # A bad approximation caused failure to predict improvement..
+        results["success"] = True
+
     return results["success"]
