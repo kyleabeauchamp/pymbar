@@ -181,7 +181,7 @@ def mbar_obj_fast(R_kn, N_k, f_k):
     vector.  
     """
     c_k = np.exp(f_k)
-    return -N_k.dot(f_k) + np.log(R_kn.T.dot(c_k * 1.0)).sum()
+    return -N_k.dot(f_k) + np.log(R_kn.T.dot(c_k * N_k)).sum()
 
 def mbar_gradient_fast(R_kn, N_k, f_k):
     """Gradient of mbar_obj()
@@ -215,6 +215,43 @@ def mbar_gradient_fast(R_kn, N_k, f_k):
 
     return grad
 
+    c_k = np.exp(f_k)
+    return -N_k.dot(f_k) + np.log(R_kn.T.dot(c_k * N_k)).sum()
+
+def mbar_gradient_and_obj_fast(R_kn, N_k, f_k):
+    """Gradient of mbar_obj()
+    
+    Parameters
+    ----------
+    u_kn : np.ndarray
+        The reduced potential energies.
+    N_k : np.ndarray
+        The number of samples.
+    f_k : np.ndarray
+        The reduced free energies.
+
+    Returns
+    -------
+    grad : np.ndarray, dtype=float, shape=(n_states)
+        Gradient of mbar_obj
+    
+    Notes
+    -----
+    This is equation C6 in the original MBAR paper.
+    """
+
+    c_k = np.exp(f_k)
+    denom_n = R_kn.T.dot(N_k * c_k)
+    
+    num = R_kn.dot(denom_n ** -1.)
+
+    grad = N_k * (1.0 - c_k * num)
+    grad *= -1.
+
+    obj =  -N_k.dot(f_k) + np.log(denom_n).sum()
+
+    return obj, grad
+
 def mbar_obj(u_kn, N_k, f_k, u_kn_L_k=None, use_fsum=True):
     """Objective function that, when minimized, solves MBAR problem.
     
@@ -226,10 +263,6 @@ def mbar_obj(u_kn, N_k, f_k, u_kn_L_k=None, use_fsum=True):
         The number of samples.
     f_k : np.ndarray
         The reduced free energies.
-    use_fsum : bool, optional, default=True
-        If True, use math.fsum to perform a stable (sorted) sum.  Although
-        slower, fsum reduces underflow error and allows minimizers to achieve
-        tighter convergence by a factor of 10 to 100 fold.
 
     Returns
     -------
@@ -241,16 +274,12 @@ def mbar_obj(u_kn, N_k, f_k, u_kn_L_k=None, use_fsum=True):
     This objective function is essentially a doubly-summed partition function and is
     quite sensitive to precision loss from both overflow and underflow.  For optimal
     results, u_kn should be preconditioned by subtracting out a `n` dependent
-    vector.  
+    vector.  Uses math.fsum for the outermost sum.
     """
     if u_kn_L_k is None:
         u_kn_L_k = u_kn - np.log(N_k)[:, np.newaxis]
 
-    if use_fsum:
-        #obj = math.fsum(logsumexp(f_k - u_kn.T, b=N_k, axis=1)) - N_k.dot(f_k)
-        obj = math.fsum(logsumexp(f_k - u_kn_L_k.T, axis=1)) - N_k.dot(f_k)
-    else:
-        obj = logsumexp(f_k - u_kn.T, b=N_k, axis=1).sum() - N_k.dot(f_k)
+    obj = math.fsum(logsumexp(f_k - u_kn_L_k.T, axis=1)) - N_k.dot(f_k)
     return obj
 
 
@@ -282,6 +311,39 @@ def mbar_gradient(u_kn, N_k, f_k, u_kn_L_k=None):
     log_denominator_n = logsumexp(f_k - u_kn_L_k.T, axis=1)
     W_logsum = logsumexp(-log_denominator_n - u_kn, axis=1)
     return -1 * N_k * (1.0 - np.exp(f_k + W_logsum))
+
+def mbar_gradient_and_obj(u_kn, N_k, f_k, u_kn_L_k=None):
+    """Gradient of mbar_obj()
+    
+    Parameters
+    ----------
+    u_kn : np.ndarray
+        The reduced potential energies.
+    N_k : np.ndarray
+        The number of samples.
+    f_k : np.ndarray
+        The reduced free energies.
+
+    Returns
+    -------
+    grad : np.ndarray, dtype=float, shape=(n_states)
+        Gradient of mbar_obj
+    
+    Notes
+    -----
+    This is equation C6 in the original MBAR paper.
+    """
+    if u_kn_L_k is None:
+        u_kn_L_k = u_kn - np.log(N_k)[:, np.newaxis]
+
+    #log_denominator_n = logsumexp(f_k - u_kn.T, b=N_k, axis=1)
+    log_denominator_n = logsumexp(f_k - u_kn_L_k.T, axis=1)
+    W_logsum = logsumexp(-log_denominator_n - u_kn, axis=1)
+    grad = -1 * N_k * (1.0 - np.exp(f_k + W_logsum))
+    
+    obj = math.fsum(log_denominator_n) - N_k.dot(f_k)
+    
+    return obj, grad
 
 
 def mbar_hessian(u_kn, N_k, f_k, u_kn_L_k=None):
@@ -403,22 +465,26 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr"
     f_k_nonzero = f_k_nonzero - f_k_nonzero[0]  # Work with reduced dimensions with f_k[0] := 0
 
     pad = lambda x: np.pad(x, (1, 0), mode='constant')  # Helper function inserts zero before first element
+    unpad_second_arg = lambda x, y: (x, y[1:])
     
     if not fast:
         obj = lambda x: mbar_obj(u_kn_nonzero, N_k_nonzero, pad(x), u_kn_L_k)  # Objective function
         grad = lambda x: mbar_gradient(u_kn_nonzero, N_k_nonzero, pad(x), u_kn_L_k)[1:]  # Objective function gradient
+        grad_and_obj = lambda x: unpad_second_arg(*mbar_gradient_and_obj(u_kn_nonzero, N_k_nonzero, pad(x), u_kn_L_k))  # Objective function gradient
         hess = lambda x: mbar_hessian(u_kn_nonzero, N_k_nonzero, pad(x), u_kn_L_k)[1:][:, 1:]  # Hessian of objective function        
     else:
         R_kn_nonzero = np.exp(-u_kn_nonzero)
         obj = lambda x: mbar_obj_fast(R_kn_nonzero, N_k_nonzero, pad(x))  # Objective function
         grad = lambda x: mbar_gradient_fast(R_kn_nonzero, N_k_nonzero, pad(x))[1:]  # Objective function gradient
+        grad_and_obj = lambda x: unpad_second_arg(*mbar_gradient_and_obj_fast(R_kn_nonzero, N_k_nonzero, pad(x)))  # Objective function gradient
         hess = lambda x: x  # FIX ME
 
     eqns = lambda x: logspace_eqns(u_kn_nonzero, N_k_nonzero, pad(x), u_kn_L_k)[1:]  # Nonlinear equations to solve via root finder
     jac = lambda x: logspace_jacobian(u_kn_nonzero, N_k_nonzero, pad(x), u_kn_L_k)[1:][:, 1:]  # Jacobian of nonlinear equations
 
     if method in ["L-BFGS-B", "dogleg", "CG", "BFGS", "Newton-CG", "TNC", "trust-ncg", "SLSQP"]:        
-        results = scipy.optimize.minimize(obj, f_k_nonzero[1:], jac=grad, hess=hess, method=method, tol=tol, options=options)
+        #results = scipy.optimize.minimize(obj, f_k_nonzero[1:], jac=grad, hess=hess, method=method, tol=tol, options=options)
+        results = scipy.optimize.minimize(grad_and_obj, f_k_nonzero[1:], jac=True, hess=hess, method=method, tol=tol, options=options)
         success = get_actual_success(results, method)
     elif method == "fixed-point":
         eqn_fixed_point = lambda x: logspace_eqns(u_kn_nonzero, N_k_nonzero, pad(x))[1:] + x  # Nonlinear equation for fixed point iteration
@@ -427,6 +493,7 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr"
         success = True
     elif method == "adaptive":
         newton_lambda = lambda x: newton_step(grad, hess, x)
+        #proposal_lambda = lambda x: propose_steps(u_kn_nonzero, N_k_nonzero, u_kn_L_k, pad(x))
         grad_norm_lambda = lambda x: np.linalg.norm(grad(x))
         eqn_sci = lambda x: logspace_eqns(u_kn_nonzero, N_k_nonzero, pad(x))[1:] + x  # Nonlinear equation for fixed point iteration
         results = {}
@@ -474,8 +541,8 @@ def adaptive(self_consistent_lambda, newton_lambda, objective_lambda, f_k, max_i
             break
         nrm0 = nrm
         
-    return f_k
-    
+    return f_k    
+
 def get_actual_success(results, method):
     """Hack to make scipy.optimize.minimize and scipy.optimize.root return consistent success flags."""
     if method == "hybr" and results["status"] == 3:  # Limited precision error--This probably means success for our objective.
