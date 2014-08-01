@@ -390,6 +390,11 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr"
     when n_states is large.
 
     """
+    #roll_by = -np.argmin(abs(f_k_nonzero - f_k_nonzero.mean()))
+    #f_k_nonzero = np.roll(f_k_nonzero, roll_by)
+    #N_k_nonzero = np.roll(N_k_nonzero, roll_by)
+    #u_kn_nonzero = np.roll(u_kn_nonzero, roll_by, axis=0)    
+    
     u_kn_nonzero = u_kn_nonzero - u_kn_nonzero.min(0)  # This should improve precision of the scalar objective function.
     # Subtract off a constant b_n from the 
     u_kn_nonzero += (logsumexp(f_k_nonzero - u_kn_nonzero.T, b=N_k_nonzero, axis=1)) - N_k_nonzero.dot(f_k_nonzero) / float(N_k_nonzero.sum())
@@ -420,6 +425,13 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr"
         results = {}  # Fixed point doesn't have a nice dictionary output wrapper, so we make one.
         results["x"] = scipy.optimize.fixed_point(eqn_fixed_point, f_k_nonzero[1:], xtol=tol, **options)
         success = True
+    elif method == "adaptive":
+        newton_lambda = lambda x: newton_step(grad, hess, x)
+        grad_norm_lambda = lambda x: np.linalg.norm(grad(x))
+        eqn_sci = lambda x: logspace_eqns(u_kn_nonzero, N_k_nonzero, pad(x))[1:] + x  # Nonlinear equation for fixed point iteration
+        results = {}
+        results["x"] = adaptive(eqn_sci, newton_lambda, grad_norm_lambda, f_k_nonzero[1:])
+        success = True
     else:
         results = scipy.optimize.root(eqns, f_k_nonzero[1:], jac=jac, method=method, tol=tol, options=options)
         success = get_actual_success(results, method)
@@ -427,8 +439,43 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr"
     if not success:
         raise(RuntimeError("MBAR algorithm %s did not converge; died with error %d. %s." % (method, results["status"], results["message"])))
     
-    return pad(results["x"]), results
+    f_k_nonzero = pad(results["x"])
+    #f_k_nonzero = np.roll(f_k_nonzero, -roll_by)
+    return f_k_nonzero, results
 
+def newton_step(eqn_function, jac_function, f_k):
+    g = eqn_function(f_k)
+    J = jac_function(f_k)
+    Hinvg = np.linalg.lstsq(J, g)[0]
+    return f_k - Hinvg
+
+def adaptive(self_consistent_lambda, newton_lambda, objective_lambda, f_k, max_iter=1000, grad_norm_tol=1E-13):
+    nrm0 = objective_lambda(f_k)
+    for i in range(max_iter):
+
+        f_sci = self_consistent_lambda(f_k)
+        f_nr = newton_lambda(f_k)
+        
+        nrm_sci = objective_lambda(f_sci)
+        nrm_nr = objective_lambda(f_nr)
+        print("%.3d %.3g %.3g %s" % (i, nrm_sci, nrm_nr, {True:"SC", False:"NR"}[nrm_sci < nrm_nr]))
+    
+        if nrm_sci < nrm_nr:
+            f_k = f_sci
+            nrm = nrm_sci
+        else:
+            f_k = f_nr
+            nrm = nrm_nr
+    
+        if nrm <= grad_norm_tol:
+            break
+            
+        if nrm > nrm0:
+            break
+        nrm0 = nrm
+        
+    return f_k
+    
 def get_actual_success(results, method):
     """Hack to make scipy.optimize.minimize and scipy.optimize.root return consistent success flags."""
     if method == "hybr" and results["status"] == 3:  # Limited precision error--This probably means success for our objective.

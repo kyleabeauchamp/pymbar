@@ -86,7 +86,7 @@ class MBAR:
     """
     #=========================================================================
 
-    def __init__(self, u_kn, N_k, maximum_iterations=10000, relative_tolerance=1.0e-7, verbose=False, initial_f_k=None, method=None, initialize='zeros', x_kindices=None):
+    def __init__(self, u_kn, N_k, maximum_iterations=10000, relative_tolerance=1.0e-7, verbose=False, initial_f_k=None, solver_protocol=None, initialize='zeros', x_kindices=None):
         """Initialize multistate Bennett acceptance ratio (MBAR) on a set of simulation data.
 
         Upon initialization, the dimensionless free energies for all states are computed.
@@ -273,7 +273,7 @@ class MBAR:
                 print "f_k = "
                 print self.f_k
         
-        self.solve_mbar(method)
+        self.solve_mbar(solver_protocol)
         
         # Print final dimensionless free energies.
         if self.verbose:
@@ -285,15 +285,13 @@ class MBAR:
             print "MBAR initialization complete."
         return
 
-    def solve_mbar(self, method):
+    def solve_mbar(self, solver_protocol):
         """Solve nonlinear equations for free energies of states with samples."""
-        if method is not None:
-            f_k_nonzero, results = mbar_solvers.solve_mbar(self.u_kn[self.states_with_samples], self.N_k[self.states_with_samples], self.f_k[self.states_with_samples], method=method)
-        else:
-            f_k_nonzero, results = mbar_solvers.solve_mbar(self.u_kn[self.states_with_samples], self.N_k[self.states_with_samples], self.f_k[self.states_with_samples], fast=True, method="L-BFGS-B")
-            f_k_nonzero, results = mbar_solvers.solve_mbar(self.u_kn[self.states_with_samples], self.N_k[self.states_with_samples], f_k_nonzero, fast=True, method="L-BFGS-B")
-            f_k_nonzero, results = mbar_solvers.solve_mbar(self.u_kn[self.states_with_samples], self.N_k[self.states_with_samples], f_k_nonzero, method="L-BFGS-B")
-            f_k_nonzero, results = mbar_solvers.solve_mbar(self.u_kn[self.states_with_samples], self.N_k[self.states_with_samples], f_k_nonzero, method="hybr")
+        if solver_protocol is None:
+            solver_protocol = [dict(method="L-BFGS-B", fast=True), dict(method="L-BFGS-B", fast=True), dict(method="L-BFGS-B"), dict(method="hybr")]
+        f_k_nonzero = self.f_k[self.states_with_samples]
+        for k, options in enumerate(solver_protocol):
+            f_k_nonzero, results = mbar_solvers.solve_mbar(self.u_kn[self.states_with_samples], self.N_k[self.states_with_samples], f_k_nonzero, **options)
         
         self.f_k[self.states_with_samples] = f_k_nonzero
         # Recompute all free energies because those from states with zero samples are not correctly computed by Newton-Raphson.

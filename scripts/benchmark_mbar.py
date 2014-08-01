@@ -23,7 +23,10 @@ def load_exponentials(n_states):
     x_n, u_kn, N_k_output = test.sample(N_k, mode='u_kn')
     return name, u_kn, N_k_output
 
-mbar_gens = {"new":lambda u_kn, N_k: pymbar.MBAR(u_kn, N_k)}
+
+solver_protocol = [dict(method="L-BFGS-B", fast=True), dict(method="L-BFGS-B", fast=True), dict(method="L-BFGS-B"), dict(method="adaptive")]
+#solver_protocol = None
+mbar_gens = {"new":lambda u_kn, N_k: pymbar.MBAR(u_kn, N_k, solver_protocol=solver_protocol)}
 #mbar_gens = {"old":lambda u_kn, N_k: pymbar.old_mbar.MBAR(u_kn, N_k)}
 #mbar_gens = {"new":lambda u_kn, N_k: pymbar.MBAR(u_kn, N_k), "old":lambda u_kn, N_k: pymbar.old_mbar.MBAR(u_kn, N_k)}
 systems = [lambda : load_exponentials(50), lambda : load_exponentials(150), lambda : load_oscillators(50), lambda : load_oscillators(150), load_gas_data, load_8proteins_data]
@@ -39,7 +42,6 @@ for version, mbar_gen in mbar_gens.items():
         grad_norm = np.linalg.norm(pymbar.mbar_solvers.mbar_gradient(u_kn, N_k, mbar.f_k))
         obj = pymbar.mbar_solvers.mbar_obj(u_kn, N_k, mbar.f_k)
         timedata.append([name, version, time.time() - time0, grad_norm, wsum, wdot])
-        print(np.linalg.norm(mbar.f_k), np.linalg.norm(mbar.f_k + np.log(mbar.N_k)))
 
 
 timedata = pd.DataFrame(timedata, columns=["name", "version", "time", "grad", "|W.sum(0) - 1|", "|W.dot(N_k) - 1|"])

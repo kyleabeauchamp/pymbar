@@ -24,22 +24,32 @@ def load_exponentials(n_states):
     return name, u_kn, N_k_output
 
 
-#name, u_kn, N_k = load_oscillators(150)
-#name, u_kn, N_k = load_gas_data()
-name, u_kn, N_k = load_8proteins_data()
+#name, u_kn, N_k = load_oscillators(25)
+name, u_kn, N_k = load_gas_data()
+#name, u_kn, N_k = load_8proteins_data()
 u_kn = u_kn[N_k > 0]
 N_k = N_k[N_k > 0]
-
 n_states = N_k.shape
+
+
+
 time0 = time.time()
+last_time = time0
 f_k, results = pymbar.mbar_solvers.solve_mbar(u_kn, N_k, np.zeros(n_states), fast=True, method="L-BFGS-B")
-print(time.time() - time0)
+print(time.time() - last_time)
+print(f_k)
+last_time = time.time()
 f_k, results = pymbar.mbar_solvers.solve_mbar(u_kn, N_k, f_k, fast=True, method="L-BFGS-B")
-print(time.time() - time0)
+print(time.time() - last_time)
+print(f_k)
+last_time = time.time()
 f_k, results = pymbar.mbar_solvers.solve_mbar(u_kn, N_k, f_k, method="L-BFGS-B")
-print(time.time() - time0)
-f_k, results = pymbar.mbar_solvers.solve_mbar(u_kn, N_k, f_k, method="hybr")
-print(time.time() - time0)
+print(time.time() - last_time)
+print(f_k)
+last_time = time.time()
+f_k, results = pymbar.mbar_solvers.solve_mbar(u_kn, N_k, f_k, method="adaptive")
+print(time.time() - last_time)
+print(f_k)
 dt = time.time() - time0
 W = pymbar.mbar_solvers.mbar_W_nk(u_kn, N_k, f_k)
 wsum = np.linalg.norm(W.sum(0) - 1.0)
