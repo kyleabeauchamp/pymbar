@@ -2,6 +2,7 @@ import numpy as np
 import math
 import scipy.optimize
 
+
 try:  # numexpr used in logsumexp when available.
     import numexpr
     HAVE_NUMEXPR = True
@@ -202,6 +203,7 @@ def mbar_obj_fast(R_kn, N_k, f_k):
     c_k = np.exp(f_k)
     return -N_k.dot(f_k) + np.log(R_kn.T.dot(c_k * N_k)).sum()
 
+
 def mbar_gradient_fast(R_kn, N_k, f_k):
     """Gradient of mbar_obj()
     
@@ -233,6 +235,8 @@ def mbar_gradient_fast(R_kn, N_k, f_k):
     grad *= -1.
 
     return grad
+
+
 
 def mbar_gradient_and_obj_fast(R_kn, N_k, f_k):
     """Gradient of mbar_obj()
@@ -267,6 +271,8 @@ def mbar_gradient_and_obj_fast(R_kn, N_k, f_k):
     obj =  -N_k.dot(f_k) + np.log(denom_n).sum()
 
     return obj, grad
+
+
 
 def mbar_obj(u_kn, N_k, f_k):
     """Objective function that, when minimized, solves MBAR problem.
@@ -323,6 +329,8 @@ def mbar_gradient(u_kn, N_k, f_k):
     W_logsum = logsumexp(-log_denominator_n - u_kn, axis=1)
     return -1 * N_k * (1.0 - np.exp(f_k + W_logsum))
 
+
+
 def mbar_gradient_and_obj(u_kn, N_k, f_k):
     """Gradient of mbar_obj()
     
@@ -352,6 +360,7 @@ def mbar_gradient_and_obj(u_kn, N_k, f_k):
     obj = math.fsum(log_denominator_n) - N_k.dot(f_k)
     
     return obj, grad
+
 
 
 def mbar_hessian(u_kn, N_k, f_k):
@@ -386,6 +395,7 @@ def mbar_hessian(u_kn, N_k, f_k):
     return -1.0 * H
 
 
+
 def mbar_W_nk(u_kn, N_k, f_k):
     """Calculate the weight matrix.
     
@@ -410,6 +420,8 @@ def mbar_W_nk(u_kn, N_k, f_k):
     log_denominator_n = logsumexp(f_k - u_kn.T, b=N_k, axis=1)
     W = np.exp(f_k -u_kn.T - log_denominator_n[:, np.newaxis])
     return W
+
+
 
 def mbar_hessian_fast(R_kn, N_k, f_k):
     """Hessian of mbar_obj.
@@ -441,6 +453,7 @@ def mbar_hessian_fast(R_kn, N_k, f_k):
     H -= np.diag(W.sum(0) * N_k)
     
     return -1.0 * H
+
 
 
 def mbar_W_nk_fast(R_kn, N_k, f_k):
@@ -511,12 +524,7 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr"
     Jacobian matrix, which means it could result in large memory usage
     when n_states is large.
 
-    """
-    #roll_by = -np.argmin(abs(f_k_nonzero - f_k_nonzero.mean()))
-    #f_k_nonzero = np.roll(f_k_nonzero, roll_by)
-    #N_k_nonzero = np.roll(N_k_nonzero, roll_by)
-    #u_kn_nonzero = np.roll(u_kn_nonzero, roll_by, axis=0)    
-    
+    """    
     u_kn_nonzero = u_kn_nonzero - u_kn_nonzero.min(0)  # This should improve precision of the scalar objective function.
     # Subtract off a constant b_n from the 
     u_kn_nonzero += (logsumexp(f_k_nonzero - u_kn_nonzero.T, b=N_k_nonzero, axis=1)) - N_k_nonzero.dot(f_k_nonzero) / float(N_k_nonzero.sum())
@@ -542,7 +550,6 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr"
     jac = lambda x: logspace_jacobian(u_kn_nonzero, N_k_nonzero, pad(x))[1:][:, 1:]  # Jacobian of nonlinear equations
 
     if method in ["L-BFGS-B", "dogleg", "CG", "BFGS", "Newton-CG", "TNC", "trust-ncg", "SLSQP"]:        
-        #results = scipy.optimize.minimize(obj, f_k_nonzero[1:], jac=grad, hess=hess, method=method, tol=tol, options=options)
         results = scipy.optimize.minimize(grad_and_obj, f_k_nonzero[1:], jac=True, hess=hess, method=method, tol=tol, options=options)
         success = get_actual_success(results, method)
     elif method == "fixed-point":
@@ -569,7 +576,6 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr"
         raise(RuntimeError("MBAR algorithm %s did not converge; died with error %d. %s." % (method, results["status"], results["message"])))
     
     f_k_nonzero = pad(results["x"])
-    #f_k_nonzero = np.roll(f_k_nonzero, -roll_by)
     return f_k_nonzero, results
 
 def newton_step(eqn_function, jac_function, f_k):
