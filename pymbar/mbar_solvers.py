@@ -578,7 +578,7 @@ def newton_step(eqn_function, jac_function, f_k):
     Hinvg = np.linalg.lstsq(J, g)[0]
     return f_k - Hinvg
 
-def adaptive(self_consistent_lambda, newton_lambda, objective_lambda, f_k, max_iter=1000, grad_norm_tol=1E-13):
+def adaptive(self_consistent_lambda, newton_lambda, objective_lambda, f_k, max_iter=5000, grad_norm_tol=1E-13):
     nrm0 = objective_lambda(f_k)
     for i in range(max_iter):
         print(nrm0)
@@ -587,7 +587,7 @@ def adaptive(self_consistent_lambda, newton_lambda, objective_lambda, f_k, max_i
         
         nrm_sci = objective_lambda(f_sci)
         nrm_nr = objective_lambda(f_nr)
-        print("%.3d:  %.3d %.3g %.3g %s" % (i, nrm0, nrm_sci, nrm_nr, {True:"SC", False:"NR"}[nrm_sci < nrm_nr]))
+        print("%.3d:  %.3g %.3g %.3g %s" % (i, nrm0, nrm_sci, nrm_nr, {True:"SC", False:"NR"}[nrm_sci < nrm_nr]))
     
         if nrm_sci < nrm_nr or np.isnan(nrm_nr):
             f_k = f_sci
