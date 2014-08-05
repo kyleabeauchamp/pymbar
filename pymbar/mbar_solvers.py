@@ -69,7 +69,7 @@ def logsumexp(a, axis=None, b=None, use_numexpr=True):
     return out
 
 
-def self_consistent_update(u_kn, N_k, f_k, u_kn_L_k=None):
+def self_consistent_update(u_kn, N_k, f_k):
     """Return an improved guess for the dimensionless free energies
     
     Parameters
@@ -85,14 +85,35 @@ def self_consistent_update(u_kn, N_k, f_k, u_kn_L_k=None):
     f_k : np.ndarray
         Updated estimate of f_k
     """
-    if u_kn_L_k is None:
-        u_kn_L_k = u_kn - np.log(N_k)[:, np.newaxis]
-
-    log_denominator_n = logsumexp(f_k - u_kn_L_k.T, axis=1)
+    log_denominator_n = logsumexp(f_k - u_kn.T, b=N_k, axis=1)
     return -1. * logsumexp(-log_denominator_n - u_kn, axis=1)
 
 
-def logspace_eqns(u_kn, N_k, f_k, u_kn_L_k=None):
+def self_consistent_update_fast(R_kn, N_k, f_k):
+    """Return an improved guess for the dimensionless free energies
+    
+    Parameters
+    ----------
+    u_kn : np.ndarray, dtype=float, shape=(n_states, n_samples)
+        The reduced potential energies.
+    N_k : np.ndarray
+        The number of samples.
+    f_k : np.ndarray
+        The reduced free energies.
+    Returns
+    -------
+    f_k : np.ndarray
+        Updated estimate of f_k
+    """
+
+    c_k = np.exp(f_k)
+    denom_n = R_kn.T.dot(N_k * c_k)
+    
+    num = R_kn.dot(denom_n ** -1.)
+    return -np.log(num)
+
+
+def logspace_eqns(u_kn, N_k, f_k):
     """Calculate nonlinear equations whose root is the MBAR solution.
     
     Parameters
@@ -113,10 +134,10 @@ def logspace_eqns(u_kn, N_k, f_k, u_kn_L_k=None):
     This function works in logspace and is based on Eqn. 11 in
     the original MBAR paper.
     """
-    return f_k - self_consistent_update(u_kn, N_k, f_k, u_kn_L_k=u_kn_L_k)
+    return f_k - self_consistent_update(u_kn, N_k, f_k)
 
 
-def logspace_jacobian(u_kn, N_k, f_k, u_kn_L_k=None):
+def logspace_jacobian(u_kn, N_k, f_k):
     """Calculate jacobian of the nonlinear equations whose root is the MBAR solution.
     
     Parameters
@@ -138,10 +159,8 @@ def logspace_jacobian(u_kn, N_k, f_k, u_kn_L_k=None):
     the original MBAR paper.  This is NOT the same as the approach shown
     in Eqn. C9 in the MBAR paper.
     """    
-    if u_kn_L_k is None:
-        u_kn_L_k = u_kn - np.log(N_k)[:, np.newaxis]
 
-    W = mbar_W_nk(u_kn, N_k, f_k, u_kn_L_k=u_kn_L_k)
+    W = mbar_W_nk(u_kn, N_k, f_k)
     W_sum = W.sum(0)
     
     J = W.T.dot(W)
@@ -215,9 +234,6 @@ def mbar_gradient_fast(R_kn, N_k, f_k):
 
     return grad
 
-    c_k = np.exp(f_k)
-    return -N_k.dot(f_k) + np.log(R_kn.T.dot(c_k * N_k)).sum()
-
 def mbar_gradient_and_obj_fast(R_kn, N_k, f_k):
     """Gradient of mbar_obj()
     
@@ -252,7 +268,7 @@ def mbar_gradient_and_obj_fast(R_kn, N_k, f_k):
 
     return obj, grad
 
-def mbar_obj(u_kn, N_k, f_k, u_kn_L_k=None, use_fsum=True):
+def mbar_obj(u_kn, N_k, f_k):
     """Objective function that, when minimized, solves MBAR problem.
     
     Parameters
@@ -276,14 +292,12 @@ def mbar_obj(u_kn, N_k, f_k, u_kn_L_k=None, use_fsum=True):
     results, u_kn should be preconditioned by subtracting out a `n` dependent
     vector.  Uses math.fsum for the outermost sum.
     """
-    if u_kn_L_k is None:
-        u_kn_L_k = u_kn - np.log(N_k)[:, np.newaxis]
-
-    obj = math.fsum(logsumexp(f_k - u_kn_L_k.T, axis=1)) - N_k.dot(f_k)
+    
+    obj = math.fsum(logsumexp(f_k - u_kn.T, b=N_k, axis=1)) - N_k.dot(f_k)
     return obj
 
 
-def mbar_gradient(u_kn, N_k, f_k, u_kn_L_k=None):
+def mbar_gradient(u_kn, N_k, f_k):
     """Gradient of mbar_obj()
     
     Parameters
@@ -304,15 +318,12 @@ def mbar_gradient(u_kn, N_k, f_k, u_kn_L_k=None):
     -----
     This is equation C6 in the original MBAR paper.
     """
-    if u_kn_L_k is None:
-        u_kn_L_k = u_kn - np.log(N_k)[:, np.newaxis]
 
-    #log_denominator_n = logsumexp(f_k - u_kn.T, b=N_k, axis=1)
-    log_denominator_n = logsumexp(f_k - u_kn_L_k.T, axis=1)
+    log_denominator_n = logsumexp(f_k - u_kn.T, b=N_k, axis=1)
     W_logsum = logsumexp(-log_denominator_n - u_kn, axis=1)
     return -1 * N_k * (1.0 - np.exp(f_k + W_logsum))
 
-def mbar_gradient_and_obj(u_kn, N_k, f_k, u_kn_L_k=None):
+def mbar_gradient_and_obj(u_kn, N_k, f_k):
     """Gradient of mbar_obj()
     
     Parameters
@@ -333,11 +344,8 @@ def mbar_gradient_and_obj(u_kn, N_k, f_k, u_kn_L_k=None):
     -----
     This is equation C6 in the original MBAR paper.
     """
-    if u_kn_L_k is None:
-        u_kn_L_k = u_kn - np.log(N_k)[:, np.newaxis]
 
-    #log_denominator_n = logsumexp(f_k - u_kn.T, b=N_k, axis=1)
-    log_denominator_n = logsumexp(f_k - u_kn_L_k.T, axis=1)
+    log_denominator_n = logsumexp(f_k - u_kn.T, b=N_k, axis=1)
     W_logsum = logsumexp(-log_denominator_n - u_kn, axis=1)
     grad = -1 * N_k * (1.0 - np.exp(f_k + W_logsum))
     
@@ -346,7 +354,7 @@ def mbar_gradient_and_obj(u_kn, N_k, f_k, u_kn_L_k=None):
     return obj, grad
 
 
-def mbar_hessian(u_kn, N_k, f_k, u_kn_L_k=None):
+def mbar_hessian(u_kn, N_k, f_k):
     """Hessian of mbar_obj.
     
     Parameters
@@ -367,10 +375,8 @@ def mbar_hessian(u_kn, N_k, f_k, u_kn_L_k=None):
     -----
     Equation (C9) in the original MBAR paper.
     """
-    if u_kn_L_k is None:
-        u_kn_L_k = u_kn - np.log(N_k)[:, np.newaxis]    
 
-    W = mbar_W_nk(u_kn, N_k, f_k, u_kn_L_k=u_kn_L_k)
+    W = mbar_W_nk(u_kn, N_k, f_k)
     
     H = W.T.dot(W)
     H *= N_k
@@ -380,7 +386,7 @@ def mbar_hessian(u_kn, N_k, f_k, u_kn_L_k=None):
     return -1.0 * H
 
 
-def mbar_W_nk(u_kn, N_k, f_k, u_kn_L_k=None):
+def mbar_W_nk(u_kn, N_k, f_k):
     """Calculate the weight matrix.
     
     Parameters
@@ -401,12 +407,66 @@ def mbar_W_nk(u_kn, N_k, f_k, u_kn_L_k=None):
     -----
     This implements equation (9) in the MBAR paper.
     """
-    if u_kn_L_k is None:
-        u_kn_L_k = u_kn - np.log(N_k)[:, np.newaxis]    
-
-    D_n = logsumexp(f_k - u_kn_L_k.T, axis=1)
-    W = np.exp(f_k -u_kn.T - D_n[:, np.newaxis])
+    log_denominator_n = logsumexp(f_k - u_kn.T, b=N_k, axis=1)
+    W = np.exp(f_k -u_kn.T - log_denominator_n[:, np.newaxis])
     return W
+
+def mbar_hessian_fast(R_kn, N_k, f_k):
+    """Hessian of mbar_obj.
+    
+    Parameters
+    ----------
+    u_kn : np.ndarray
+        The reduced potential energies.
+    N_k : np.ndarray
+        The number of samples.
+    f_k : np.ndarray
+        The reduced free energies.
+
+    Returns
+    -------
+    H : np.ndarray, dtype=float, shape=(n_states, n_states)
+        Hessian of mbar objective function.
+    
+    Notes
+    -----
+    Equation (C9) in the original MBAR paper.
+    """
+
+    W = mbar_W_nk_fast(R_kn, N_k, f_k)
+    
+    H = W.T.dot(W)
+    H *= N_k
+    H *= N_k[:, np.newaxis]
+    H -= np.diag(W.sum(0) * N_k)
+    
+    return -1.0 * H
+
+
+def mbar_W_nk_fast(R_kn, N_k, f_k):
+    """Calculate the weight matrix.
+    
+    Parameters
+    ----------
+    u_kn : np.ndarray
+        The reduced potential energies.
+    N_k : np.ndarray
+        The number of samples.
+    f_k : np.ndarray
+        The reduced free energies.
+
+    Returns
+    -------
+    W_nk : np.ndarray, dtype='float', shape=(n_samples, n_states)
+        The normalized weights.
+    
+    Notes
+    -----
+    This implements equation (9) in the MBAR paper.
+    """
+    c_k = np.exp(f_k)
+    denom_n = R_kn.T.dot(N_k * c_k)
+    return c_k * R_kn.T / denom_n[:, np.newaxis]
 
 
 def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr", tol=1E-20, options=None):
@@ -460,7 +520,6 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr"
     u_kn_nonzero = u_kn_nonzero - u_kn_nonzero.min(0)  # This should improve precision of the scalar objective function.
     # Subtract off a constant b_n from the 
     u_kn_nonzero += (logsumexp(f_k_nonzero - u_kn_nonzero.T, b=N_k_nonzero, axis=1)) - N_k_nonzero.dot(f_k_nonzero) / float(N_k_nonzero.sum())
-    u_kn_L_k = u_kn_nonzero - np.log(N_k_nonzero)[:, np.newaxis]
 
     f_k_nonzero = f_k_nonzero - f_k_nonzero[0]  # Work with reduced dimensions with f_k[0] := 0
 
@@ -468,19 +527,19 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr"
     unpad_second_arg = lambda x, y: (x, y[1:])
     
     if not fast:
-        obj = lambda x: mbar_obj(u_kn_nonzero, N_k_nonzero, pad(x), u_kn_L_k)  # Objective function
-        grad = lambda x: mbar_gradient(u_kn_nonzero, N_k_nonzero, pad(x), u_kn_L_k)[1:]  # Objective function gradient
-        grad_and_obj = lambda x: unpad_second_arg(*mbar_gradient_and_obj(u_kn_nonzero, N_k_nonzero, pad(x), u_kn_L_k))  # Objective function gradient
-        hess = lambda x: mbar_hessian(u_kn_nonzero, N_k_nonzero, pad(x), u_kn_L_k)[1:][:, 1:]  # Hessian of objective function        
+        obj = lambda x: mbar_obj(u_kn_nonzero, N_k_nonzero, pad(x))  # Objective function
+        grad = lambda x: mbar_gradient(u_kn_nonzero, N_k_nonzero, pad(x))[1:]  # Objective function gradient
+        grad_and_obj = lambda x: unpad_second_arg(*mbar_gradient_and_obj(u_kn_nonzero, N_k_nonzero, pad(x)))  # Objective function gradient
+        hess = lambda x: mbar_hessian(u_kn_nonzero, N_k_nonzero, pad(x))[1:][:, 1:]  # Hessian of objective function        
     else:
         R_kn_nonzero = np.exp(-u_kn_nonzero)
         obj = lambda x: mbar_obj_fast(R_kn_nonzero, N_k_nonzero, pad(x))  # Objective function
         grad = lambda x: mbar_gradient_fast(R_kn_nonzero, N_k_nonzero, pad(x))[1:]  # Objective function gradient
         grad_and_obj = lambda x: unpad_second_arg(*mbar_gradient_and_obj_fast(R_kn_nonzero, N_k_nonzero, pad(x)))  # Objective function gradient
-        hess = lambda x: x  # FIX ME
+        hess = lambda x: mbar_hessian_fast(R_kn_nonzero, N_k_nonzero, pad(x))[1:][:, 1:]  # Hessian of objective function        
 
-    eqns = lambda x: logspace_eqns(u_kn_nonzero, N_k_nonzero, pad(x), u_kn_L_k)[1:]  # Nonlinear equations to solve via root finder
-    jac = lambda x: logspace_jacobian(u_kn_nonzero, N_k_nonzero, pad(x), u_kn_L_k)[1:][:, 1:]  # Jacobian of nonlinear equations
+    eqns = lambda x: logspace_eqns(u_kn_nonzero, N_k_nonzero, pad(x))[1:]  # Nonlinear equations to solve via root finder
+    jac = lambda x: logspace_jacobian(u_kn_nonzero, N_k_nonzero, pad(x))[1:][:, 1:]  # Jacobian of nonlinear equations
 
     if method in ["L-BFGS-B", "dogleg", "CG", "BFGS", "Newton-CG", "TNC", "trust-ncg", "SLSQP"]:        
         #results = scipy.optimize.minimize(obj, f_k_nonzero[1:], jac=grad, hess=hess, method=method, tol=tol, options=options)
@@ -493,9 +552,12 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr"
         success = True
     elif method == "adaptive":
         newton_lambda = lambda x: newton_step(grad, hess, x)
-        #proposal_lambda = lambda x: propose_steps(u_kn_nonzero, N_k_nonzero, u_kn_L_k, pad(x))
         grad_norm_lambda = lambda x: np.linalg.norm(grad(x))
-        eqn_sci = lambda x: logspace_eqns(u_kn_nonzero, N_k_nonzero, pad(x))[1:] + x  # Nonlinear equation for fixed point iteration
+        if not fast:
+            eqn_sci = lambda x: self_consistent_update(u_kn_nonzero, N_k_nonzero, pad(x))[1:]
+        else:
+            eqn_sci = lambda x: self_consistent_update_fast(R_kn_nonzero, N_k_nonzero, pad(x))[1:]
+        
         results = {}
         results["x"] = adaptive(eqn_sci, newton_lambda, grad_norm_lambda, f_k_nonzero[1:])
         success = True
@@ -519,15 +581,15 @@ def newton_step(eqn_function, jac_function, f_k):
 def adaptive(self_consistent_lambda, newton_lambda, objective_lambda, f_k, max_iter=1000, grad_norm_tol=1E-13):
     nrm0 = objective_lambda(f_k)
     for i in range(max_iter):
-
+        print(nrm0)
         f_sci = self_consistent_lambda(f_k)
         f_nr = newton_lambda(f_k)
         
         nrm_sci = objective_lambda(f_sci)
         nrm_nr = objective_lambda(f_nr)
-        print("%.3d %.3g %.3g %s" % (i, nrm_sci, nrm_nr, {True:"SC", False:"NR"}[nrm_sci < nrm_nr]))
+        print("%.3d:  %.3d %.3g %.3g %s" % (i, nrm0, nrm_sci, nrm_nr, {True:"SC", False:"NR"}[nrm_sci < nrm_nr]))
     
-        if nrm_sci < nrm_nr:
+        if nrm_sci < nrm_nr or np.isnan(nrm_nr):
             f_k = f_sci
             nrm = nrm_sci
         else:
@@ -535,9 +597,11 @@ def adaptive(self_consistent_lambda, newton_lambda, objective_lambda, f_k, max_i
             nrm = nrm_nr
     
         if nrm <= grad_norm_tol:
+            print("Break due to grad_norm_tol")
             break
             
         if nrm > nrm0:
+            print("nrm_increase")
             break
         nrm0 = nrm
         
