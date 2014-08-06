@@ -60,7 +60,7 @@ def logsumexp(a, axis=None, b=None, use_numexpr=True):
             out = np.log(np.sum(b * np.exp(a - a_max), axis=axis))
     else:
         if use_numexpr and HAVE_NUMEXPR:
-            out = np.log(numexpr.evaluate("sum(exp(a - a_max), axis=%d)" % axis))
+            out = np.log(numexpr.evaluate("sum(exp(a - a_max), axis=%s)" % axis))
         else:
             out = np.log(np.sum(np.exp(a - a_max), axis=axis))
 
@@ -183,10 +183,6 @@ def mbar_obj_fast(R_kn, N_k, f_k):
         The number of samples.
     f_k : np.ndarray
         The reduced free energies.
-    use_fsum : bool, optional, default=True
-        If True, use math.fsum to perform a stable (sorted) sum.  Although
-        slower, fsum reduces underflow error and allows minimizers to achieve
-        tighter convergence by a factor of 10 to 100 fold.
 
     Returns
     -------
