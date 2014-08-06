@@ -90,30 +90,6 @@ def self_consistent_update(u_kn, N_k, f_k):
     return -1. * logsumexp(-log_denominator_n - u_kn, axis=1)
 
 
-def self_consistent_update_fast(R_kn, N_k, f_k):
-    """Return an improved guess for the dimensionless free energies
-    
-    Parameters
-    ----------
-    u_kn : np.ndarray, dtype=float, shape=(n_states, n_samples)
-        The reduced potential energies.
-    N_k : np.ndarray
-        The number of samples.
-    f_k : np.ndarray
-        The reduced free energies.
-    Returns
-    -------
-    f_k : np.ndarray
-        Updated estimate of f_k
-    """
-
-    c_k = np.exp(f_k)
-    denom_n = R_kn.T.dot(N_k * c_k)
-    
-    num = R_kn.dot(denom_n ** -1.)
-    return -np.log(num)
-
-
 def logspace_eqns(u_kn, N_k, f_k):
     """Calculate nonlinear equations whose root is the MBAR solution.
     
