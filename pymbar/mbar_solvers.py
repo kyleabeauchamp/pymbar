@@ -540,7 +540,7 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr"
         obj = lambda x: mbar_obj_fast(R_kn_nonzero, N_k_nonzero, pad(x))  # Objective function
         grad = lambda x: mbar_gradient_fast(R_kn_nonzero, N_k_nonzero, pad(x))[1:]  # Objective function gradient
         grad_and_obj = lambda x: unpad_second_arg(*mbar_gradient_and_obj_fast(R_kn_nonzero, N_k_nonzero, pad(x)))  # Objective function gradient
-        hess = lambda x: mbar_hessian_fast(R_kn_nonzero, N_k_nonzero, pad(x))[1:][:, 1:]  # Hessian of objective function        
+        hess = lambda x: mbar_hessian_fast(R_kn_nonzero, N_k_nonzero, pad(x))[1:][:, 1:]  # Hessian of objective function
 
     eqns = lambda x: logspace_eqns(u_kn_nonzero, N_k_nonzero, pad(x))[1:]  # Nonlinear equations to solve via root finder
     jac = lambda x: logspace_jacobian(u_kn_nonzero, N_k_nonzero, pad(x))[1:][:, 1:]  # Jacobian of nonlinear equations
@@ -548,22 +548,6 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr"
     if method in ["L-BFGS-B", "dogleg", "CG", "BFGS", "Newton-CG", "TNC", "trust-ncg", "SLSQP"]:        
         results = scipy.optimize.minimize(grad_and_obj, f_k_nonzero[1:], jac=True, hess=hess, method=method, tol=tol, options=options)
         success = get_actual_success(results, method)
-    elif method == "fixed-point":
-        eqn_fixed_point = lambda x: logspace_eqns(u_kn_nonzero, N_k_nonzero, pad(x))[1:] + x  # Nonlinear equation for fixed point iteration
-        results = {}  # Fixed point doesn't have a nice dictionary output wrapper, so we make one.
-        results["x"] = scipy.optimize.fixed_point(eqn_fixed_point, f_k_nonzero[1:], xtol=tol, **options)
-        success = True
-    elif method == "adaptive":
-        newton_lambda = lambda x: newton_step(grad, hess, x)
-        grad_norm_lambda = lambda x: np.linalg.norm(grad(x))
-        if not fast:
-            eqn_sci = lambda x: self_consistent_update(u_kn_nonzero, N_k_nonzero, pad(x))[1:]
-        else:
-            eqn_sci = lambda x: self_consistent_update_fast(R_kn_nonzero, N_k_nonzero, pad(x))[1:]
-        
-        results = {}
-        results["x"] = adaptive(eqn_sci, newton_lambda, grad_norm_lambda, f_k_nonzero[1:])
-        success = True
     else:
         results = scipy.optimize.root(eqns, f_k_nonzero[1:], jac=jac, method=method, tol=tol, options=options)
         success = get_actual_success(results, method)
@@ -574,40 +558,6 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr"
     f_k_nonzero = pad(results["x"])
     return f_k_nonzero, results
 
-def newton_step(eqn_function, jac_function, f_k):
-    g = eqn_function(f_k)
-    J = jac_function(f_k)
-    Hinvg = np.linalg.lstsq(J, g)[0]
-    return f_k - Hinvg
-
-def adaptive(self_consistent_lambda, newton_lambda, objective_lambda, f_k, max_iter=5000, grad_norm_tol=1E-13):
-    nrm0 = objective_lambda(f_k)
-    for i in range(max_iter):
-        print(nrm0)
-        f_sci = self_consistent_lambda(f_k)
-        f_nr = newton_lambda(f_k)
-        
-        nrm_sci = objective_lambda(f_sci)
-        nrm_nr = objective_lambda(f_nr)
-        print("%.3d:  %.3g %.3g %.3g %s" % (i, nrm0, nrm_sci, nrm_nr, {True:"SC", False:"NR"}[nrm_sci < nrm_nr]))
-    
-        if nrm_sci < nrm_nr or np.isnan(nrm_nr):
-            f_k = f_sci
-            nrm = nrm_sci
-        else:
-            f_k = f_nr
-            nrm = nrm_nr
-    
-        if nrm <= grad_norm_tol:
-            print("Break due to grad_norm_tol")
-            break
-            
-        if nrm > nrm0:
-            print("nrm_increase")
-            break
-        nrm0 = nrm
-        
-    return f_k    
 
 def get_actual_success(results, method):
     """Hack to make scipy.optimize.minimize and scipy.optimize.root return consistent success flags."""
