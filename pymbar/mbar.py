@@ -127,10 +127,11 @@ class MBAR:
         initial_f_k : np.ndarray, float, shape=(K), optional
             Set to the initial dimensionless free energies to use as a 
             guess (default None, which sets all f_k = 0)
-        method : string, optional, default='hybr'
-            Method for determination of dimensionless free energies:
-            Must be a method compatible with scipy.optimize.minimize or
-            scipy.optimize.root.  By default, we recommend 'hybr'.  
+        method : list(dict), optional, default=None
+            List of dictionaries to define a sequence of solver algorithms
+            and options used to estimate the dimensionless free energies.
+            See `pymbar.mbar_solvers.solve_mbar()` for details.  If None,
+            use the developers best guess at an appropriate algorithm.
         initialize : string, optional
             If equal to 'BAR', use BAR between the pairwise state to
             initialize the free energies.  Eventually, should specify a path;
