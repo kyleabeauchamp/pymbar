@@ -428,19 +428,19 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr"
     
     Parameters
     ----------
-    u_kn_nonzero : np.ndarray
-        The reduced potential energies of the nonempty states.
-    N_k_nonzero : np.ndarray
-        The number of samples of the nonempty states
-    f_k_Nozero : np.ndarray
-        The reduced free energies of the nonempty states
+    u_kn_nonzero : np.ndarray, shape=(n_states, n_samples), dtype='float'
+        The reduced potential energies, i.e. log unnormalized probabilities
+        for the nonempty states
+    N_k_nonzero : np.ndarray, shape=(n_states), dtype='int'
+        The number of samples in each state for the nonempty states
+    f_k_nonzero : np.ndarray, shape=(n_states), dtype='float'
+        The reduced free energies for the nonempty states
+    fast : bool, optional, default=False
+        If true, use matrix-vector products of Q_kn rather than logsumexp
+        operations on u_kn.  This increases speed but reduces precision.
     method : str, optional, default="hybr"
         The optimization routine to use.  This can be any of the methods
         available via scipy.optimize.minimize() or scipy.optimize.root().
-        We find that 'hybr', which uses the MINPACK HYBR nonlinear equation solver,
-        provides the fastest convergence to precise results.  'L-BFGS-B'
-        is less precise and slower, but does not require calculation of
-        an n^2 hessian or jacobian matrix.
     tol : float, optional, default=1E-20
         The convergance tolerance for minimize() or root()
     options: dict, optional, default=None
@@ -461,13 +461,16 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr"
     already dropped all the states for which you have no samples.
     Internally, this function works in a reduced coordinate system defined
     by subtracting off the first component of f_k and fixing that component
-    to be zero.  The "hybr" method explicitly calculates the (n_states, n_states)
-    Jacobian matrix, which means it could result in large memory usage
-    when n_states is large.
-
+    to be zero.  
+    
+    For fast but precise convergence, we recommend calling this function
+    multiple times, staring with fast=True and eventually polishing the
+    result with fast=False.
     """    
     u_kn_nonzero = u_kn_nonzero - u_kn_nonzero.min(0)  # This should improve precision of the scalar objective function.
-    # Subtract off a constant b_n from the 
+    # Subtract off a constant b_n from the reduced potentials such that the objective function at the current guess of f_k is zero
+    # The gradient and hessians are invariant under this subtraction, but the objective function is offset by a constant
+    # The key advantage of having f(x) ~ 0 is improved numerical precision
     u_kn_nonzero += (logsumexp(f_k_nonzero - u_kn_nonzero.T, b=N_k_nonzero, axis=1)) - N_k_nonzero.dot(f_k_nonzero) / float(N_k_nonzero.sum())
 
     f_k_nonzero = f_k_nonzero - f_k_nonzero[0]  # Work with reduced dimensions with f_k[0] := 0
