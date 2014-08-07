@@ -423,7 +423,7 @@ def mbar_W_nk_fast(Q_kn, N_k, f_k):
     return c_k_inv * Q_kn.T / denom_n[:, np.newaxis]
 
 
-def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr", tol=1E-20, options=None):
+def solve_mbar_once(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr", tol=1E-20, options=None):
     """Solve MBAR self-consistent equations using some form of equation solver.
     
     Parameters
@@ -502,3 +502,57 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr"
 
     f_k_nonzero = pad(results["x"])
     return f_k_nonzero, results
+
+
+def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, solver_protocol=None):
+    """Solve MBAR self-consistent equations using some sequence of equation solvers.
+    
+    Parameters
+    ----------
+    u_kn_nonzero : np.ndarray, shape=(n_states, n_samples), dtype='float'
+        The reduced potential energies, i.e. log unnormalized probabilities
+        for the nonempty states
+    N_k_nonzero : np.ndarray, shape=(n_states), dtype='int'
+        The number of samples in each state for the nonempty states
+    f_k_nonzero : np.ndarray, shape=(n_states), dtype='float'
+        The reduced free energies for the nonempty states
+    solver_protocol: list(dict()), optional, default=None
+        Optional list of dictionaries of steps in solver protocol.  
+        If None, the default protocol of [dict(method="L-BFGS-B", fast=True), 
+        dict(method="L-BFGS-B", fast=True), 
+        dict(method="hybr", fast=True), dict(method="hybr")]
+        will be used.  This achieves optimal precision and convergence in
+        the minimium amount of time.  
+
+    Returns
+    -------
+    f_k : np.ndarray
+        The converged reduced free energies.
+    all_results : list(dict())
+        List of results from each step of solver_protocol.  Each element in
+        list contains the results dictionary from solve_mbar_single() 
+        for the corresponding step.
+    
+    Notes
+    -----
+    This function requires that N_k_nonzero > 0--that is, you should have
+    already dropped all the states for which you have no samples.
+    Internally, this function works in a reduced coordinate system defined
+    by subtracting off the first component of f_k and fixing that component
+    to be zero.  
+    
+    This function calls `solve_mbar_once()` multiple times to achieve
+    converged results.  Generally, a single call to solve_mbar_single()
+    will not give fully converged answers because of limited numerical precision.
+    Each call to `solve_mbar_once()` re-conditions the nonlinear
+    equations using the current guess.
+    """    
+    if solver_protocol is None:
+        solver_protocol = [dict(method="L-BFGS-B", fast=True), dict(method="L-BFGS-B", fast=True), dict(method="hybr", fast=True), dict(method="hybr")]
+    
+    all_results = []
+    for k, options in enumerate(solver_protocol):
+        f_k_nonzero, results = solve_mbar_once(u_kn_nonzero, N_k_nonzero, f_k_nonzero, **options)    
+        all_results.append(results)
+
+    return f_k_nonzero, all_results
