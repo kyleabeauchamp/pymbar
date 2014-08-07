@@ -28,7 +28,6 @@ import itertools
 import warnings
 
 import numpy as np
-import scipy.misc
 
 ##############################################################################
 # functions / classes
