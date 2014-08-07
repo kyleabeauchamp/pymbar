@@ -172,8 +172,8 @@ def mbar_obj_fast(R_kn, N_k, f_k):
     results, u_kn should be preconditioned by subtracting out a `n` dependent
     vector.  
     """
-    c_k = np.exp(f_k)
-    return -N_k.dot(f_k) + np.log(R_kn.T.dot(c_k * N_k)).sum()
+    c_k_inv = np.exp(f_k)
+    return -N_k.dot(f_k) + np.log(R_kn.T.dot(c_k_inv * N_k)).sum()
 
 
 def mbar_gradient_fast(R_kn, N_k, f_k):
@@ -198,12 +198,12 @@ def mbar_gradient_fast(R_kn, N_k, f_k):
     This is equation C6 in the original MBAR paper.
     """
 
-    c_k = np.exp(f_k)
-    denom_n = R_kn.T.dot(N_k * c_k)
+    c_k_inv = np.exp(f_k)
+    denom_n = R_kn.T.dot(N_k * c_k_inv)
     
     num = R_kn.dot(denom_n ** -1.)
 
-    grad = N_k * (1.0 - c_k * num)
+    grad = N_k * (1.0 - c_k_inv * num)
     grad *= -1.
 
     return grad
@@ -232,12 +232,12 @@ def mbar_gradient_and_obj_fast(R_kn, N_k, f_k):
     This is equation C6 in the original MBAR paper.
     """
 
-    c_k = np.exp(f_k)
-    denom_n = R_kn.T.dot(N_k * c_k)
+    c_k_inv = np.exp(f_k)
+    denom_n = R_kn.T.dot(N_k * c_k_inv)
     
     num = R_kn.dot(denom_n ** -1.)
 
-    grad = N_k * (1.0 - c_k * num)
+    grad = N_k * (1.0 - c_k_inv * num)
     grad *= -1.
 
     obj =  -N_k.dot(f_k) + np.log(denom_n).sum()
@@ -449,9 +449,9 @@ def mbar_W_nk_fast(R_kn, N_k, f_k):
     -----
     This implements equation (9) in the MBAR paper.
     """
-    c_k = np.exp(f_k)
-    denom_n = R_kn.T.dot(N_k * c_k)
-    return c_k * R_kn.T / denom_n[:, np.newaxis]
+    c_k_inv = np.exp(f_k)
+    denom_n = R_kn.T.dot(N_k * c_k_inv)
+    return c_k_inv * R_kn.T / denom_n[:, np.newaxis]
 
 
 def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr", tol=1E-20, options=None):
