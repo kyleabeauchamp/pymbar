@@ -17,7 +17,7 @@ def logsumexp(a, axis=None, b=None, use_numexpr=True):
     ----------
     a : array_like
         Input array.
-    axis : None or int or tuple of ints, optional
+    axis : None or int, optional, default=None
         Axis or axes over which the sum is taken. By default `axis` is None,
         and all elements are summed. 
     b : array-like, optional
@@ -30,8 +30,8 @@ def logsumexp(a, axis=None, b=None, use_numexpr=True):
     Returns
     -------
     res : ndarray
-        The result, ``np.log(np.sum(np.exp(a)))`` calculated in a numerically
-        more stable way. If `b` is given then ``np.log(np.sum(b*np.exp(a)))``
+        The result, ``log(sum(exp(a)))`` calculated in a numerically
+        more stable way. If `b` is given then ``log(sum(b*exp(a)))``
         is returned.
 
     See Also
@@ -121,7 +121,9 @@ def mbar_obj_fast(Q_kn, N_k, f_k):
     vector.  
     
     This "fast" version works by performing matrix operations using Q_kn.
-    This may have slightly reduced precision as compared to 
+    This may have slightly reduced precision as compared to the non-fast
+    version, which uses logsumexp operations instead of matrix
+    multiplication.
     """
     c_k_inv = np.exp(f_k)
     return -N_k.dot(f_k) + np.log(Q_kn.T.dot(c_k_inv * N_k)).sum()
@@ -132,21 +134,26 @@ def mbar_gradient_fast(Q_kn, N_k, f_k):
     
     Parameters
     ----------
-    u_kn : np.ndarray
-        The reduced potential energies.
-    N_k : np.ndarray
-        The number of samples.
-    f_k : np.ndarray
-        The reduced free energies.
+    Q_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
+        Unnormalized probabilities.  Q_kn = exp(-u_kn)
+    N_k : np.ndarray, shape=(n_states), dtype='int'
+        The number of samples in each state
+    f_k : np.ndarray, shape=(n_states), dtype='float'
+        The reduced free energies of each state
 
     Returns
     -------
     grad : np.ndarray, dtype=float, shape=(n_states)
-        Gradient of mbar_obj
+        Gradient of objective function
     
     Notes
     -----
     This is equation C6 in the original MBAR paper.
+    
+    This "fast" version works by performing matrix operations using Q_kn.
+    This may have slightly reduced precision as compared to the non-fast
+    version, which uses logsumexp operations instead of matrix
+    multiplication.    
     """
 
     c_k_inv = np.exp(f_k)
@@ -162,25 +169,31 @@ def mbar_gradient_fast(Q_kn, N_k, f_k):
 
 
 def mbar_gradient_and_obj_fast(Q_kn, N_k, f_k):
-    """Gradient of mbar_obj()
+    """Calculates both objective function and gradient for MBAR.
     
     Parameters
     ----------
-    u_kn : np.ndarray
-        The reduced potential energies.
-    N_k : np.ndarray
-        The number of samples.
-    f_k : np.ndarray
-        The reduced free energies.
+    Q_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
+        Unnormalized probabilities.  Q_kn = exp(-u_kn)
+    N_k : np.ndarray, shape=(n_states), dtype='int'
+        The number of samples in each state
+    f_k : np.ndarray, shape=(n_states), dtype='float'
+        The reduced free energies of each state
 
     Returns
     -------
+    obj : float
+        Objective function
     grad : np.ndarray, dtype=float, shape=(n_states)
-        Gradient of mbar_obj
+        Gradient of objective function
     
     Notes
     -----
-    This is equation C6 in the original MBAR paper.
+    
+    This "fast" version works by performing matrix operations using Q_kn.
+    This may have slightly reduced precision as compared to the non-fast
+    version, which uses logsumexp operations instead of matrix
+    multiplication.
     """
 
     c_k_inv = np.exp(f_k)
@@ -202,12 +215,12 @@ def mbar_obj(u_kn, N_k, f_k):
     
     Parameters
     ----------
-    u_kn : np.ndarray
-        The reduced potential energies.
-    N_k : np.ndarray
-        The number of samples.
-    f_k : np.ndarray
-        The reduced free energies.
+    u_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
+        The reduced potential energies, i.e. log unnormalized probabilities
+    N_k : np.ndarray, shape=(n_states), dtype='int'
+        The number of samples in each state
+    f_k : np.ndarray, shape=(n_states), dtype='float'
+        The reduced free energies of each state
 
     Returns
     -------
@@ -227,16 +240,16 @@ def mbar_obj(u_kn, N_k, f_k):
 
 
 def mbar_gradient(u_kn, N_k, f_k):
-    """Gradient of mbar_obj()
+    """Gradient of MBAR objective function.  
     
     Parameters
     ----------
-    u_kn : np.ndarray
-        The reduced potential energies.
-    N_k : np.ndarray
-        The number of samples.
-    f_k : np.ndarray
-        The reduced free energies.
+    u_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
+        The reduced potential energies, i.e. log unnormalized probabilities
+    N_k : np.ndarray, shape=(n_states), dtype='int'
+        The number of samples in each state
+    f_k : np.ndarray, shape=(n_states), dtype='float'
+        The reduced free energies of each state
 
     Returns
     -------
@@ -255,25 +268,25 @@ def mbar_gradient(u_kn, N_k, f_k):
 
 
 def mbar_gradient_and_obj(u_kn, N_k, f_k):
-    """Gradient of mbar_obj()
+    """Calculates both objective function and gradient for MBAR.
     
     Parameters
     ----------
-    u_kn : np.ndarray
-        The reduced potential energies.
-    N_k : np.ndarray
-        The number of samples.
-    f_k : np.ndarray
-        The reduced free energies.
+    u_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
+        The reduced potential energies, i.e. log unnormalized probabilities
+    N_k : np.ndarray, shape=(n_states), dtype='int'
+        The number of samples in each state
+    f_k : np.ndarray, shape=(n_states), dtype='float'
+        The reduced free energies of each state
+
 
     Returns
     -------
+    obj : float
+        Objective function
     grad : np.ndarray, dtype=float, shape=(n_states)
-        Gradient of mbar_obj
-    
-    Notes
-    -----
-    This is equation C6 in the original MBAR paper.
+        Gradient of objective function
+
     """
 
     log_denominator_n = logsumexp(f_k - u_kn.T, b=N_k, axis=1)
@@ -287,16 +300,16 @@ def mbar_gradient_and_obj(u_kn, N_k, f_k):
 
 
 def mbar_hessian(u_kn, N_k, f_k):
-    """Hessian of mbar_obj.
+    """Hessian of MBAR objective function.
     
     Parameters
     ----------
-    u_kn : np.ndarray
-        The reduced potential energies.
-    N_k : np.ndarray
-        The number of samples.
-    f_k : np.ndarray
-        The reduced free energies.
+    u_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
+        The reduced potential energies, i.e. log unnormalized probabilities
+    N_k : np.ndarray, shape=(n_states), dtype='int'
+        The number of samples in each state
+    f_k : np.ndarray, shape=(n_states), dtype='float'
+        The reduced free energies of each state
 
     Returns
     -------
@@ -305,7 +318,7 @@ def mbar_hessian(u_kn, N_k, f_k):
     
     Notes
     -----
-    Equation (C9) in the original MBAR paper.
+    Equation (C9) in JCP MBAR paper.
     """
 
     W = mbar_W_nk(u_kn, N_k, f_k)
@@ -324,12 +337,12 @@ def mbar_W_nk(u_kn, N_k, f_k):
     
     Parameters
     ----------
-    u_kn : np.ndarray
-        The reduced potential energies.
-    N_k : np.ndarray
-        The number of samples.
-    f_k : np.ndarray
-        The reduced free energies.
+    u_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
+        The reduced potential energies, i.e. log unnormalized probabilities
+    N_k : np.ndarray, shape=(n_states), dtype='int'
+        The number of samples in each state
+    f_k : np.ndarray, shape=(n_states), dtype='float'
+        The reduced free energies of each state
 
     Returns
     -------
@@ -338,7 +351,7 @@ def mbar_W_nk(u_kn, N_k, f_k):
     
     Notes
     -----
-    This implements equation (9) in the MBAR paper.
+    Equation (9) in JCP MBAR paper.
     """
     log_denominator_n = logsumexp(f_k - u_kn.T, b=N_k, axis=1)
     W = np.exp(f_k -u_kn.T - log_denominator_n[:, np.newaxis])
@@ -347,16 +360,16 @@ def mbar_W_nk(u_kn, N_k, f_k):
 
 
 def mbar_hessian_fast(Q_kn, N_k, f_k):
-    """Hessian of mbar_obj.
+    """Hessian of MBAR objective function (fast).
     
     Parameters
     ----------
-    u_kn : np.ndarray
-        The reduced potential energies.
-    N_k : np.ndarray
-        The number of samples.
-    f_k : np.ndarray
-        The reduced free energies.
+    Q_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
+        Unnormalized probabilities.  Q_kn = exp(-u_kn)
+    N_k : np.ndarray, shape=(n_states), dtype='int'
+        The number of samples in each state
+    f_k : np.ndarray, shape=(n_states), dtype='float'
+        The reduced free energies of each state
 
     Returns
     -------
@@ -365,7 +378,12 @@ def mbar_hessian_fast(Q_kn, N_k, f_k):
     
     Notes
     -----
-    Equation (C9) in the original MBAR paper.
+    Equation (C9) in JCP MBAR paper.
+    
+    This "fast" version works by performing matrix operations using Q_kn.
+    This may have slightly reduced precision as compared to the non-fast
+    version, which uses logsumexp operations instead of matrix
+    multiplication.    
     """
 
     W = mbar_W_nk_fast(Q_kn, N_k, f_k)
@@ -384,12 +402,12 @@ def mbar_W_nk_fast(Q_kn, N_k, f_k):
     
     Parameters
     ----------
-    u_kn : np.ndarray
-        The reduced potential energies.
-    N_k : np.ndarray
-        The number of samples.
-    f_k : np.ndarray
-        The reduced free energies.
+    Q_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
+        Unnormalized probabilities.  Q_kn = exp(-u_kn)
+    N_k : np.ndarray, shape=(n_states), dtype='int'
+        The number of samples in each state
+    f_k : np.ndarray, shape=(n_states), dtype='float'
+        The reduced free energies of each state
 
     Returns
     -------
@@ -398,7 +416,7 @@ def mbar_W_nk_fast(Q_kn, N_k, f_k):
     
     Notes
     -----
-    This implements equation (9) in the MBAR paper.
+    Equation (9) in JCP MBAR paper.
     """
     c_k_inv = np.exp(f_k)
     denom_n = Q_kn.T.dot(N_k * c_k_inv)
@@ -455,7 +473,7 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr"
     f_k_nonzero = f_k_nonzero - f_k_nonzero[0]  # Work with reduced dimensions with f_k[0] := 0
 
     pad = lambda x: np.pad(x, (1, 0), mode='constant')  # Helper function inserts zero before first element
-    unpad_second_arg = lambda x, y: (x, y[1:])
+    unpad_second_arg = lambda obj, grad: (obj, grad[1:])  # Helper function drops first element of gradient
     
     if not fast:
         obj = lambda x: mbar_obj(u_kn_nonzero, N_k_nonzero, pad(x))  # Objective function
