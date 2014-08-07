@@ -274,7 +274,7 @@ class MBAR:
                 print "f_k = "
                 print self.f_k
         
-        self.solve_mbar(solver_protocol)
+        self.solve_mbar(solver_protocol=solver_protocol)
         
         # Print final dimensionless free energies.
         if self.verbose:
@@ -286,7 +286,7 @@ class MBAR:
             print "MBAR initialization complete."
         return
 
-    def solve_mbar(self, solver_protocol):
+    def solve_mbar(self, solver_protocol=None):
         """Solve for free energies of states with samples, then calculate for empty states."""
         f_k_nonzero, all_results = mbar_solvers.solve_mbar(self.u_kn[self.states_with_samples], self.N_k[self.states_with_samples], self.f_k[self.states_with_samples], solver_protocol)
         self.f_k[self.states_with_samples] = f_k_nonzero
