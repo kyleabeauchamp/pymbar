@@ -55,12 +55,12 @@ def logsumexp(a, axis=None, b=None, use_numexpr=True):
     if b is not None:
         b = np.asarray(b)
         if use_numexpr and HAVE_NUMEXPR:
-            out = np.log(numexpr.evaluate("sum(b * exp(a - a_max), axis=%d)" % axis))
+            out = np.log(numexpr.evaluate("b * exp(a - a_max)").sum(axis))
         else:
             out = np.log(np.sum(b * np.exp(a - a_max), axis=axis))
     else:
         if use_numexpr and HAVE_NUMEXPR:
-            out = np.log(numexpr.evaluate("sum(exp(a - a_max), axis=%s)" % axis))
+            out = np.log(numexpr.evaluate("exp(a - a_max)").sum(axis))
         else:
             out = np.log(np.sum(np.exp(a - a_max), axis=axis))
 
