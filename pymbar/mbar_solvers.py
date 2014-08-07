@@ -25,7 +25,7 @@ def logsumexp(a, axis=None, b=None, use_numexpr=True):
         broadcastable to `a`.
     use_numexpr : bool, optional, default=True
         If True, use the numexpr library to speed up the calculation, which
-        can give a 2X speedup when working with large arrays.
+        can give a 2-4X speedup when working with large arrays.
 
     Returns
     -------
@@ -40,7 +40,8 @@ def logsumexp(a, axis=None, b=None, use_numexpr=True):
 
     Notes
     -----
-    This is based on scipy.misc.logsumexp but with optional numexpr support.
+    This is based on scipy.misc.logsumexp but with optional numexpr
+    support for improved performance.
     """
 
     a = np.asarray(a)
@@ -75,32 +76,37 @@ def self_consistent_update(u_kn, N_k, f_k):
     
     Parameters
     ----------
-    u_kn : np.ndarray, dtype=float, shape=(n_states, n_samples)
-        The reduced potential energies.
-    N_k : np.ndarray
-        The number of samples.
-    f_k : np.ndarray
-        The reduced free energies.
+    u_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
+        The reduced potential energies, i.e. log unnormalized probabilities
+    N_k : np.ndarray, shape=(n_states), dtype='int'
+        The number of samples in each state
+    f_k : np.ndarray, shape=(n_states), dtype='float'
+        The reduced free energies of each state
+
     Returns
     -------
-    f_k : np.ndarray
+    f_k : np.ndarray, shape=(n_states), dtype='float'
         Updated estimate of f_k
+    
+    Notes
+    -----
+    Equation C3 in MBAR JCP paper.
     """
     log_denominator_n = logsumexp(f_k - u_kn.T, b=N_k, axis=1)
     return -1. * logsumexp(-log_denominator_n - u_kn, axis=1)
 
 
-def mbar_obj_fast(R_kn, N_k, f_k):
+def mbar_obj_fast(Q_kn, N_k, f_k):
     """Objective function that, when minimized, solves MBAR problem.
     
     Parameters
     ----------
-    u_kn : np.ndarray
-        The reduced potential energies.
-    N_k : np.ndarray
-        The number of samples.
-    f_k : np.ndarray
-        The reduced free energies.
+    Q_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
+        Unnormalized probabilities.  Q_kn = exp(-u_kn)
+    N_k : np.ndarray, shape=(n_states), dtype='int'
+        The number of samples in each state
+    f_k : np.ndarray, shape=(n_states), dtype='float'
+        The reduced free energies of each state
 
     Returns
     -------
@@ -113,12 +119,15 @@ def mbar_obj_fast(R_kn, N_k, f_k):
     quite sensitive to precision loss from both overflow and underflow.  For optimal
     results, u_kn should be preconditioned by subtracting out a `n` dependent
     vector.  
+    
+    This "fast" version works by performing matrix operations using Q_kn.
+    This may have slightly reduced precision as compared to 
     """
     c_k_inv = np.exp(f_k)
-    return -N_k.dot(f_k) + np.log(R_kn.T.dot(c_k_inv * N_k)).sum()
+    return -N_k.dot(f_k) + np.log(Q_kn.T.dot(c_k_inv * N_k)).sum()
 
 
-def mbar_gradient_fast(R_kn, N_k, f_k):
+def mbar_gradient_fast(Q_kn, N_k, f_k):
     """Gradient of mbar_obj()
     
     Parameters
@@ -141,9 +150,9 @@ def mbar_gradient_fast(R_kn, N_k, f_k):
     """
 
     c_k_inv = np.exp(f_k)
-    denom_n = R_kn.T.dot(N_k * c_k_inv)
+    denom_n = Q_kn.T.dot(N_k * c_k_inv)
     
-    num = R_kn.dot(denom_n ** -1.)
+    num = Q_kn.dot(denom_n ** -1.)
 
     grad = N_k * (1.0 - c_k_inv * num)
     grad *= -1.
@@ -152,7 +161,7 @@ def mbar_gradient_fast(R_kn, N_k, f_k):
 
 
 
-def mbar_gradient_and_obj_fast(R_kn, N_k, f_k):
+def mbar_gradient_and_obj_fast(Q_kn, N_k, f_k):
     """Gradient of mbar_obj()
     
     Parameters
@@ -175,9 +184,9 @@ def mbar_gradient_and_obj_fast(R_kn, N_k, f_k):
     """
 
     c_k_inv = np.exp(f_k)
-    denom_n = R_kn.T.dot(N_k * c_k_inv)
+    denom_n = Q_kn.T.dot(N_k * c_k_inv)
     
-    num = R_kn.dot(denom_n ** -1.)
+    num = Q_kn.dot(denom_n ** -1.)
 
     grad = N_k * (1.0 - c_k_inv * num)
     grad *= -1.
@@ -337,7 +346,7 @@ def mbar_W_nk(u_kn, N_k, f_k):
 
 
 
-def mbar_hessian_fast(R_kn, N_k, f_k):
+def mbar_hessian_fast(Q_kn, N_k, f_k):
     """Hessian of mbar_obj.
     
     Parameters
@@ -359,7 +368,7 @@ def mbar_hessian_fast(R_kn, N_k, f_k):
     Equation (C9) in the original MBAR paper.
     """
 
-    W = mbar_W_nk_fast(R_kn, N_k, f_k)
+    W = mbar_W_nk_fast(Q_kn, N_k, f_k)
     
     H = W.T.dot(W)
     H *= N_k
@@ -370,7 +379,7 @@ def mbar_hessian_fast(R_kn, N_k, f_k):
 
 
 
-def mbar_W_nk_fast(R_kn, N_k, f_k):
+def mbar_W_nk_fast(Q_kn, N_k, f_k):
     """Calculate the weight matrix.
     
     Parameters
@@ -392,8 +401,8 @@ def mbar_W_nk_fast(R_kn, N_k, f_k):
     This implements equation (9) in the MBAR paper.
     """
     c_k_inv = np.exp(f_k)
-    denom_n = R_kn.T.dot(N_k * c_k_inv)
-    return c_k_inv * R_kn.T / denom_n[:, np.newaxis]
+    denom_n = Q_kn.T.dot(N_k * c_k_inv)
+    return c_k_inv * Q_kn.T / denom_n[:, np.newaxis]
 
 
 def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr", tol=1E-20, options=None):
@@ -456,11 +465,11 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr"
         eqns = grad
         jac = hess
     else:
-        R_kn_nonzero = np.exp(-u_kn_nonzero)
-        obj = lambda x: mbar_obj_fast(R_kn_nonzero, N_k_nonzero, pad(x))  # Objective function
-        grad = lambda x: mbar_gradient_fast(R_kn_nonzero, N_k_nonzero, pad(x))[1:]  # Objective function gradient
-        grad_and_obj = lambda x: unpad_second_arg(*mbar_gradient_and_obj_fast(R_kn_nonzero, N_k_nonzero, pad(x)))  # Objective function gradient
-        hess = lambda x: mbar_hessian_fast(R_kn_nonzero, N_k_nonzero, pad(x))[1:][:, 1:]  # Hessian of objective function
+        Q_kn_nonzero = np.exp(-u_kn_nonzero)
+        obj = lambda x: mbar_obj_fast(Q_kn_nonzero, N_k_nonzero, pad(x))  # Objective function
+        grad = lambda x: mbar_gradient_fast(Q_kn_nonzero, N_k_nonzero, pad(x))[1:]  # Objective function gradient
+        grad_and_obj = lambda x: unpad_second_arg(*mbar_gradient_and_obj_fast(Q_kn_nonzero, N_k_nonzero, pad(x)))  # Objective function gradient
+        hess = lambda x: mbar_hessian_fast(Q_kn_nonzero, N_k_nonzero, pad(x))[1:][:, 1:]  # Hessian of objective function
         eqns = grad
         jac = hess
 
