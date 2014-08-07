@@ -77,7 +77,7 @@ def self_consistent_update(u_kn, N_k, f_k):
     Parameters
     ----------
     u_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
-        The reduced potential energies, i.e. log unnormalized probabilities
+        The reduced potential energies, i.e. -log unnormalized probabilities
     N_k : np.ndarray, shape=(n_states), dtype='int'
         The number of samples in each state
     f_k : np.ndarray, shape=(n_states), dtype='float'
@@ -216,7 +216,7 @@ def mbar_obj(u_kn, N_k, f_k):
     Parameters
     ----------
     u_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
-        The reduced potential energies, i.e. log unnormalized probabilities
+        The reduced potential energies, i.e. -log unnormalized probabilities
     N_k : np.ndarray, shape=(n_states), dtype='int'
         The number of samples in each state
     f_k : np.ndarray, shape=(n_states), dtype='float'
@@ -245,7 +245,7 @@ def mbar_gradient(u_kn, N_k, f_k):
     Parameters
     ----------
     u_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
-        The reduced potential energies, i.e. log unnormalized probabilities
+        The reduced potential energies, i.e. -log unnormalized probabilities
     N_k : np.ndarray, shape=(n_states), dtype='int'
         The number of samples in each state
     f_k : np.ndarray, shape=(n_states), dtype='float'
@@ -273,7 +273,7 @@ def mbar_gradient_and_obj(u_kn, N_k, f_k):
     Parameters
     ----------
     u_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
-        The reduced potential energies, i.e. log unnormalized probabilities
+        The reduced potential energies, i.e. -log unnormalized probabilities
     N_k : np.ndarray, shape=(n_states), dtype='int'
         The number of samples in each state
     f_k : np.ndarray, shape=(n_states), dtype='float'
@@ -305,7 +305,7 @@ def mbar_hessian(u_kn, N_k, f_k):
     Parameters
     ----------
     u_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
-        The reduced potential energies, i.e. log unnormalized probabilities
+        The reduced potential energies, i.e. -log unnormalized probabilities
     N_k : np.ndarray, shape=(n_states), dtype='int'
         The number of samples in each state
     f_k : np.ndarray, shape=(n_states), dtype='float'
@@ -338,7 +338,7 @@ def mbar_W_nk(u_kn, N_k, f_k):
     Parameters
     ----------
     u_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
-        The reduced potential energies, i.e. log unnormalized probabilities
+        The reduced potential energies, i.e. -log unnormalized probabilities
     N_k : np.ndarray, shape=(n_states), dtype='int'
         The number of samples in each state
     f_k : np.ndarray, shape=(n_states), dtype='float'
@@ -429,7 +429,7 @@ def solve_mbar_once(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="
     Parameters
     ----------
     u_kn_nonzero : np.ndarray, shape=(n_states, n_samples), dtype='float'
-        The reduced potential energies, i.e. log unnormalized probabilities
+        The reduced potential energies, i.e. -log unnormalized probabilities
         for the nonempty states
     N_k_nonzero : np.ndarray, shape=(n_states), dtype='int'
         The number of samples in each state for the nonempty states
@@ -510,7 +510,7 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, solver_protocol=None):
     Parameters
     ----------
     u_kn_nonzero : np.ndarray, shape=(n_states, n_samples), dtype='float'
-        The reduced potential energies, i.e. log unnormalized probabilities
+        The reduced potential energies, i.e. -log unnormalized probabilities
         for the nonempty states
     N_k_nonzero : np.ndarray, shape=(n_states), dtype='int'
         The number of samples in each state for the nonempty states
