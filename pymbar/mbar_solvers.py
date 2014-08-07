@@ -96,7 +96,7 @@ def self_consistent_update(u_kn, N_k, f_k):
     return -1. * logsumexp(-log_denominator_n - u_kn, axis=1)
 
 
-def mbar_obj_fast(Q_kn, N_k, f_k):
+def mbar_objective_fast(Q_kn, N_k, f_k):
     """Objective function that, when minimized, solves MBAR problem.
     
     Parameters
@@ -130,7 +130,7 @@ def mbar_obj_fast(Q_kn, N_k, f_k):
 
 
 def mbar_gradient_fast(Q_kn, N_k, f_k):
-    """Gradient of mbar_obj()
+    """Gradient of mbar_objective()
     
     Parameters
     ----------
@@ -168,7 +168,7 @@ def mbar_gradient_fast(Q_kn, N_k, f_k):
 
 
 
-def mbar_gradient_and_obj_fast(Q_kn, N_k, f_k):
+def mbar_objective_and_gradient_fast(Q_kn, N_k, f_k):
     """Calculates both objective function and gradient for MBAR.
     
     Parameters
@@ -210,7 +210,7 @@ def mbar_gradient_and_obj_fast(Q_kn, N_k, f_k):
 
 
 
-def mbar_obj(u_kn, N_k, f_k):
+def mbar_objective(u_kn, N_k, f_k):
     """Objective function that, when minimized, solves MBAR problem.
     
     Parameters
@@ -232,7 +232,10 @@ def mbar_obj(u_kn, N_k, f_k):
     This objective function is essentially a doubly-summed partition function and is
     quite sensitive to precision loss from both overflow and underflow.  For optimal
     results, u_kn should be preconditioned by subtracting out a `n` dependent
-    vector.  Uses math.fsum for the outermost sum.
+    vector.  
+    
+    This function uses math.fsum for the outermost sum and logsumexp for
+    the inner sum.
     """
     
     obj = math.fsum(logsumexp(f_k - u_kn.T, b=N_k, axis=1)) - N_k.dot(f_k)
@@ -254,7 +257,7 @@ def mbar_gradient(u_kn, N_k, f_k):
     Returns
     -------
     grad : np.ndarray, dtype=float, shape=(n_states)
-        Gradient of mbar_obj
+        Gradient of mbar_objective
     
     Notes
     -----
@@ -267,7 +270,7 @@ def mbar_gradient(u_kn, N_k, f_k):
 
 
 
-def mbar_gradient_and_obj(u_kn, N_k, f_k):
+def mbar_objective_and_gradient(u_kn, N_k, f_k):
     """Calculates both objective function and gradient for MBAR.
     
     Parameters
@@ -464,8 +467,7 @@ def solve_mbar_once(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="
     to be zero.  
     
     For fast but precise convergence, we recommend calling this function
-    multiple times, staring with fast=True and eventually polishing the
-    result with fast=False.
+    multiple times to polish the result.  `solve_mbar()` facilitates this.
     """    
     u_kn_nonzero = u_kn_nonzero - u_kn_nonzero.min(0)  # This should improve precision of the scalar objective function.
     # Subtract off a constant b_n from the reduced potentials such that the objective function at the current guess of f_k is zero
@@ -479,17 +481,17 @@ def solve_mbar_once(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="
     unpad_second_arg = lambda obj, grad: (obj, grad[1:])  # Helper function drops first element of gradient
     
     if not fast:
-        obj = lambda x: mbar_obj(u_kn_nonzero, N_k_nonzero, pad(x))  # Objective function
+        obj = lambda x: mbar_objective(u_kn_nonzero, N_k_nonzero, pad(x))  # Objective function
         grad = lambda x: mbar_gradient(u_kn_nonzero, N_k_nonzero, pad(x))[1:]  # Objective function gradient
-        grad_and_obj = lambda x: unpad_second_arg(*mbar_gradient_and_obj(u_kn_nonzero, N_k_nonzero, pad(x)))  # Objective function gradient
+        grad_and_obj = lambda x: unpad_second_arg(*mbar_objective_and_gradient(u_kn_nonzero, N_k_nonzero, pad(x)))  # Objective function gradient
         hess = lambda x: mbar_hessian(u_kn_nonzero, N_k_nonzero, pad(x))[1:][:, 1:]  # Hessian of objective function        
         eqns = grad
         jac = hess
     else:
         Q_kn_nonzero = np.exp(-u_kn_nonzero)
-        obj = lambda x: mbar_obj_fast(Q_kn_nonzero, N_k_nonzero, pad(x))  # Objective function
+        obj = lambda x: mbar_objective_fast(Q_kn_nonzero, N_k_nonzero, pad(x))  # Objective function
         grad = lambda x: mbar_gradient_fast(Q_kn_nonzero, N_k_nonzero, pad(x))[1:]  # Objective function gradient
-        grad_and_obj = lambda x: unpad_second_arg(*mbar_gradient_and_obj_fast(Q_kn_nonzero, N_k_nonzero, pad(x)))  # Objective function gradient
+        grad_and_obj = lambda x: unpad_second_arg(*mbar_objective_and_gradient_fast(Q_kn_nonzero, N_k_nonzero, pad(x)))  # Objective function gradient
         hess = lambda x: mbar_hessian_fast(Q_kn_nonzero, N_k_nonzero, pad(x))[1:][:, 1:]  # Hessian of objective function
         eqns = grad
         jac = hess
