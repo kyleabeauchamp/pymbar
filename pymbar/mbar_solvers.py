@@ -527,10 +527,7 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr"
     else:
         results = scipy.optimize.root(eqns, f_k_nonzero[1:], jac=jac, method=method, tol=tol, options=options)
         success = get_actual_success(results, method)
-    
-    if not success:
-        raise(RuntimeError("MBAR algorithm %s did not converge; died with error %d. %s." % (method, results["status"], results["message"])))
-    
+        
     f_k_nonzero = pad(results["x"])
     return f_k_nonzero, results
 
