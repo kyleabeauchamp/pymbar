@@ -288,8 +288,7 @@ class MBAR:
     def solve_mbar(self, solver_protocol):
         """Solve nonlinear equations for free energies of states with samples."""
         if solver_protocol is None:
-            solver_protocol = [dict(method="L-BFGS-B", fast=True), dict(method="L-BFGS-B", fast=True), 
-            dict(method="L-BFGS-B", fast=True, tol=1E-25, options=dict(gtol=1E-25, ftol=1E-25)), dict(method="L-BFGS-B"), dict(method="hybr")]
+            solver_protocol = [dict(method="L-BFGS-B", fast=True), dict(method="L-BFGS-B", fast=True), dict(method="hybr", fast=True), dict(method="hybr")]
         f_k_nonzero = self.f_k[self.states_with_samples]
         for k, options in enumerate(solver_protocol):
             f_k_nonzero, results = mbar_solvers.solve_mbar(self.u_kn[self.states_with_samples], self.N_k[self.states_with_samples], f_k_nonzero, **options)

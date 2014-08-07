@@ -90,64 +90,6 @@ def self_consistent_update(u_kn, N_k, f_k):
     return -1. * logsumexp(-log_denominator_n - u_kn, axis=1)
 
 
-def logspace_eqns(u_kn, N_k, f_k):
-    """Calculate nonlinear equations whose root is the MBAR solution.
-    
-    Parameters
-    ----------
-    u_kn : np.ndarray
-        The reduced potential energies.
-    N_k : np.ndarray
-        The number of samples.
-    f_k : np.ndarray
-        The reduced free energies.
-    Returns
-    -------
-    eqns : np.ndarray
-        Nonlinear equations whose root to find.
-    
-    Notes
-    -----
-    This function works in logspace and is based on Eqn. 11 in
-    the original MBAR paper.
-    """
-    return f_k - self_consistent_update(u_kn, N_k, f_k)
-
-
-def logspace_jacobian(u_kn, N_k, f_k):
-    """Calculate jacobian of the nonlinear equations whose root is the MBAR solution.
-    
-    Parameters
-    ----------
-    u_kn : np.ndarray
-        The reduced potential energies.
-    N_k : np.ndarray
-        The number of samples.
-    f_k : np.ndarray
-        The reduced free energies.
-    Returns
-    -------
-    J : np.ndarray, dtype=float, shape=(n_states, n_states)
-        Jacobian of nonlinear equations.
-    
-    Notes
-    -----
-    This function works in logspace and is based on Eqn. 11 in
-    the original MBAR paper.  This is NOT the same as the approach shown
-    in Eqn. C9 in the MBAR paper.
-    """    
-
-    W = mbar_W_nk(u_kn, N_k, f_k)
-    W_sum = W.sum(0)
-    
-    J = W.T.dot(W)
-    J *= N_k
-    J -= np.diag(W_sum)
-    J /= W_sum
-    
-    return -1.0 * J
-
-
 def mbar_obj_fast(R_kn, N_k, f_k):
     """Objective function that, when minimized, solves MBAR problem.
     
@@ -511,37 +453,22 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr"
         grad = lambda x: mbar_gradient(u_kn_nonzero, N_k_nonzero, pad(x))[1:]  # Objective function gradient
         grad_and_obj = lambda x: unpad_second_arg(*mbar_gradient_and_obj(u_kn_nonzero, N_k_nonzero, pad(x)))  # Objective function gradient
         hess = lambda x: mbar_hessian(u_kn_nonzero, N_k_nonzero, pad(x))[1:][:, 1:]  # Hessian of objective function        
+        eqns = grad
+        jac = hess
     else:
         R_kn_nonzero = np.exp(-u_kn_nonzero)
         obj = lambda x: mbar_obj_fast(R_kn_nonzero, N_k_nonzero, pad(x))  # Objective function
         grad = lambda x: mbar_gradient_fast(R_kn_nonzero, N_k_nonzero, pad(x))[1:]  # Objective function gradient
         grad_and_obj = lambda x: unpad_second_arg(*mbar_gradient_and_obj_fast(R_kn_nonzero, N_k_nonzero, pad(x)))  # Objective function gradient
         hess = lambda x: mbar_hessian_fast(R_kn_nonzero, N_k_nonzero, pad(x))[1:][:, 1:]  # Hessian of objective function
+        eqns = grad
+        jac = hess
 
-    eqns = lambda x: logspace_eqns(u_kn_nonzero, N_k_nonzero, pad(x))[1:]  # Nonlinear equations to solve via root finder
-    jac = lambda x: logspace_jacobian(u_kn_nonzero, N_k_nonzero, pad(x))[1:][:, 1:]  # Jacobian of nonlinear equations
 
     if method in ["L-BFGS-B", "dogleg", "CG", "BFGS", "Newton-CG", "TNC", "trust-ncg", "SLSQP"]:        
         results = scipy.optimize.minimize(grad_and_obj, f_k_nonzero[1:], jac=True, hess=hess, method=method, tol=tol, options=options)
-        success = get_actual_success(results, method)
     else:
         results = scipy.optimize.root(eqns, f_k_nonzero[1:], jac=jac, method=method, tol=tol, options=options)
-        success = get_actual_success(results, method)
-        
+
     f_k_nonzero = pad(results["x"])
     return f_k_nonzero, results
-
-
-def get_actual_success(results, method):
-    """Hack to make scipy.optimize.minimize and scipy.optimize.root return consistent success flags."""
-    if method == "hybr" and results["status"] == 3:  # Limited precision error--This probably means success for our objective.
-        results["success"] = True
-    if method == "lm" and results["status"] == 7:  # xtol=0.000000 is too small, no further improvement in the approximate
-        results["success"] = True
-    if method == "L-BFGS-B" and results["status"] == 2:  # ABNORMAL_TERMINATION_IN_LNSRCH.  This probably means success but precision issues.
-        results["success"] = True
-    if method == "trust-ncg" and results["status"] == 2:  # A bad approximation caused failure to predict improvement..
-        results["success"] = True
-    if method == "broyden2" and results["status"] == 2:  # The maximum number of iterations allowed has been reached.
-        results["success"] = True
-    return results["success"]
