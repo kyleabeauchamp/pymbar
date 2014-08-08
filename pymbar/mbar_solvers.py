@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import scipy.optimize
+from pymbar.utils import ensure_type
 
 
 try:  # numexpr used in logsumexp when available.
@@ -71,6 +72,35 @@ def logsumexp(a, axis=None, b=None, use_numexpr=True):
     return out
 
 
+def validate_inputs(u_kn, N_k, f_k):
+    """Check types and return inputs for MBAR calculations.
+    
+    Parameters
+    ----------
+    u_kn or q_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
+        The reduced potential energies or unnormalized probabilities
+    N_k : np.ndarray, shape=(n_states), dtype='int'
+        The number of samples in each state
+    f_k : np.ndarray, shape=(n_states), dtype='float'
+        The reduced free energies of each state
+
+    Returns
+    -------
+    u_kn or q_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
+        The reduced potential energies or unnormalized probabilities
+    N_k : np.ndarray, shape=(n_states), dtype='float'
+        The number of samples in each state.  Converted to float because this cast is required when log is calculated.
+    f_k : np.ndarray, shape=(n_states), dtype='float'
+        The reduced free energies of each state
+    """
+    n_states, n_samples = u_kn.shape
+    
+    u_kn = ensure_type(u_kn, 'float', 2, "u_kn or Q_kn", shape=(n_states, n_samples))
+    N_k = ensure_type(N_k, 'float', 1, "N_k", shape=(n_states,), warn_on_cast=False)  # Autocast to float because will be eventually used in float calculations.
+    f_k = ensure_type(f_k, 'float', 1, "f_k", shape=(n_states,))
+    
+    return u_kn, N_k, f_k
+
 def self_consistent_update(u_kn, N_k, f_k):
     """Return an improved guess for the dimensionless free energies
     
@@ -92,6 +122,8 @@ def self_consistent_update(u_kn, N_k, f_k):
     -----
     Equation C3 in MBAR JCP paper.
     """
+    u_kn, N_k, f_k = validate_inputs(u_kn, N_k, f_k)
+
     log_denominator_n = logsumexp(f_k - u_kn.T, b=N_k, axis=1)
     return -1. * logsumexp(-log_denominator_n - u_kn, axis=1)
 
@@ -125,6 +157,8 @@ def mbar_objective_fast(Q_kn, N_k, f_k):
     version, which uses logsumexp operations instead of matrix
     multiplication.
     """
+    Q_kn, N_k, f_k = validate_inputs(Q_kn, N_k, f_k)
+
     c_k_inv = np.exp(f_k)
     return -N_k.dot(f_k) + np.log(Q_kn.T.dot(c_k_inv * N_k)).sum()
 
@@ -155,7 +189,8 @@ def mbar_gradient_fast(Q_kn, N_k, f_k):
     version, which uses logsumexp operations instead of matrix
     multiplication.    
     """
-
+    Q_kn, N_k, f_k = validate_inputs(Q_kn, N_k, f_k)
+    
     c_k_inv = np.exp(f_k)
     denom_n = Q_kn.T.dot(N_k * c_k_inv)
     
@@ -195,6 +230,7 @@ def mbar_objective_and_gradient_fast(Q_kn, N_k, f_k):
     version, which uses logsumexp operations instead of matrix
     multiplication.
     """
+    Q_kn, N_k, f_k = validate_inputs(Q_kn, N_k, f_k)
 
     c_k_inv = np.exp(f_k)
     denom_n = Q_kn.T.dot(N_k * c_k_inv)
@@ -237,7 +273,8 @@ def mbar_objective(u_kn, N_k, f_k):
     This function uses math.fsum for the outermost sum and logsumexp for
     the inner sum.
     """
-    
+    u_kn, N_k, f_k = validate_inputs(u_kn, N_k, f_k)
+
     obj = math.fsum(logsumexp(f_k - u_kn.T, b=N_k, axis=1)) - N_k.dot(f_k)
     return obj
 
@@ -263,6 +300,7 @@ def mbar_gradient(u_kn, N_k, f_k):
     -----
     This is equation C6 in the original MBAR paper.
     """
+    u_kn, N_k, f_k = validate_inputs(u_kn, N_k, f_k)
 
     log_denominator_n = logsumexp(f_k - u_kn.T, b=N_k, axis=1)
     W_logsum = logsumexp(-log_denominator_n - u_kn, axis=1)
@@ -291,6 +329,7 @@ def mbar_objective_and_gradient(u_kn, N_k, f_k):
         Gradient of objective function
 
     """
+    u_kn, N_k, f_k = validate_inputs(u_kn, N_k, f_k)
 
     log_denominator_n = logsumexp(f_k - u_kn.T, b=N_k, axis=1)
     W_logsum = logsumexp(-log_denominator_n - u_kn, axis=1)
@@ -323,6 +362,7 @@ def mbar_hessian(u_kn, N_k, f_k):
     -----
     Equation (C9) in JCP MBAR paper.
     """
+    u_kn, N_k, f_k = validate_inputs(u_kn, N_k, f_k)
 
     W = mbar_W_nk(u_kn, N_k, f_k)
     
@@ -356,6 +396,8 @@ def mbar_W_nk(u_kn, N_k, f_k):
     -----
     Equation (9) in JCP MBAR paper.
     """
+    u_kn, N_k, f_k = validate_inputs(u_kn, N_k, f_k)
+    
     log_denominator_n = logsumexp(f_k - u_kn.T, b=N_k, axis=1)
     W = np.exp(f_k -u_kn.T - log_denominator_n[:, np.newaxis])
     return W
@@ -388,6 +430,7 @@ def mbar_hessian_fast(Q_kn, N_k, f_k):
     version, which uses logsumexp operations instead of matrix
     multiplication.    
     """
+    Q_kn, N_k, f_k = validate_inputs(Q_kn, N_k, f_k)
 
     W = mbar_W_nk_fast(Q_kn, N_k, f_k)
     
@@ -421,6 +464,8 @@ def mbar_W_nk_fast(Q_kn, N_k, f_k):
     -----
     Equation (9) in JCP MBAR paper.
     """
+    Q_kn, N_k, f_k = validate_inputs(Q_kn, N_k, f_k)
+
     c_k_inv = np.exp(f_k)
     denom_n = Q_kn.T.dot(N_k * c_k_inv)
     return c_k_inv * Q_kn.T / denom_n[:, np.newaxis]
@@ -468,7 +513,9 @@ def solve_mbar_once(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="
     
     For fast but precise convergence, we recommend calling this function
     multiple times to polish the result.  `solve_mbar()` facilitates this.
-    """    
+    """
+    u_kn_nonzero, N_k_nonzero, f_k_nonzero = validate_inputs(u_kn_nonzero, N_k_nonzero, f_k_nonzero)
+    
     u_kn_nonzero = u_kn_nonzero - u_kn_nonzero.min(0)  # This should improve precision of the scalar objective function.
     # Subtract off a constant b_n from the reduced potentials such that the objective function at the current guess of f_k is zero
     # The gradient and hessians are invariant under this subtraction, but the objective function is offset by a constant

@@ -1,6 +1,5 @@
 import numpy as np
 import pymbar
-from pymbar.utils import ensure_type
 from pymbar.utils_for_testing import eq
 import scipy.misc
 from nose import SkipTest
