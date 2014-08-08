@@ -47,8 +47,10 @@ def load_exponentials(n_states, n_samples):
 def _test(data_generator):
     try:
         name, U, N_k = data_generator()
-    except Exception as exc:
-        raise(SkipTest("Cannot load dataset; skipping test.  Try downloading pymbar-datasets GitHub repository and setting PYMBAR-DATASETS environment variable.  Error was %s" % exc))
+    except IOError as exc:
+        raise(SkipTest("Cannot load dataset; skipping test.  Try downloading pymbar-datasets GitHub repository and setting PYMBAR-DATASETS environment variable.  Error was '%s'" % exc))
+    except ImportError as exc:
+        raise(SkipTest("Error importing pytables to load dataset; skipping test. Error was '%s'" % exc))
     print(name)
     mbar = pymbar.MBAR(U, N_k)
     eq(pymbar.mbar_solvers.mbar_gradient(U, N_k, mbar.f_k), np.zeros(N_k.shape), decimal=8)
