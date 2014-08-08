@@ -2,6 +2,11 @@ import os
 import numpy as np
 import tables
 
+try:
+    root_dir = os.environ["PYMBAR_DATASETS"]
+except KeyError:
+    root_dir = os.environ["HOME"]
+
 def load_from_hdf(filename):
     f = tables.File(filename, 'r')
     u_kn = f.root.u_kn[:]
@@ -10,13 +15,11 @@ def load_from_hdf(filename):
     return u_kn, N_k
 
 def load_gas_data():
-    root_dir = "/home/kyleb/src/choderalab/pymbar-datasets/"
     name = "gas-properties"
     u_kn, N_k = load_from_hdf(os.path.join(root_dir, name, "%s.h5" % name))
     return name, u_kn, N_k
 
 def load_8proteins_data():
-    root_dir = "/home/kyleb/src/choderalab/pymbar-datasets/"
     name = "8proteins"
     u_kn, N_k = load_from_hdf(os.path.join(root_dir, name, "%s.h5" % name))
     return name, u_kn, N_k

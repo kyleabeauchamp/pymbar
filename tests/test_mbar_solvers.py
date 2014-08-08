@@ -3,6 +3,7 @@ import pymbar
 from pymbar.utils import ensure_type
 from pymbar.utils_for_testing import eq
 import scipy.misc
+from nose import SkipTest
 
 def test_logsumexp():
     a = np.random.normal(size=(200, 500, 5))
@@ -44,13 +45,21 @@ def load_exponentials(n_states, n_samples):
     return name, u_kn, N_k_output
 
 def _test(data_generator):
-    name, U, N_k = data_generator()
+    try:
+        name, U, N_k = data_generator()
+    except Exception as exc:
+        raise(SkipTest("Cannot load dataset; skipping test.  Try downloading pymbar-datasets GitHub repository and setting PYMBAR-DATASETS environment variable.  Error was %s" % exc))
     print(name)
     mbar = pymbar.MBAR(U, N_k)
     eq(pymbar.mbar_solvers.mbar_gradient(U, N_k, mbar.f_k), np.zeros(N_k.shape), decimal=8)
     eq(np.exp(mbar.Log_W_nk).sum(0), np.ones(len(N_k)), decimal=10)
     eq(np.exp(mbar.Log_W_nk).dot(N_k), np.ones(U.shape[1]), decimal=10)
     eq(pymbar.mbar_solvers.self_consistent_update(U, N_k, mbar.f_k), mbar.f_k, decimal=10)
+
+    # Test against old MBAR code.
+    mbar0 = pymbar.old_mbar.MBAR(U, N_k)
+    eq(mbar.f_k, mbar0.f_k, decimal=8)
+    eq(np.exp(mbar.Log_W_nk), np.exp(mbar0.Log_W_nk), decimal=5)    
 
 
 def test_100x100_oscillators():
