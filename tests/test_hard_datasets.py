@@ -22,7 +22,10 @@ def _test(data_generator):
     name, U, N_k = data_generator()
     print(name)
     mbar = pymbar.MBAR(U, N_k)
-    eq(mbar_solvers.mbar_gradient(U, N_k, mbar.f_k), np.zeros(N_k.shape), decimal=7)
+    eq(mbar_solvers.mbar_gradient(U, N_k, mbar.f_k), np.zeros(N_k.shape), decimal=8)
+    eq(np.exp(mbar.Log_W_nk).sum(0), np.ones(len(N_k)), decimal=10)
+    eq(np.exp(mbar.Log_W_nk).dot(N_k), np.ones(U.shape[1]), decimal=10)
+    eq(mbar_solvers.self_consistent_update(U, N_k, mbar.f_k), mbar.f_k, decimal=10)
 
 
 def test_100_oscillators():
