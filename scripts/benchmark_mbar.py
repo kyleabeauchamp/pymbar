@@ -37,7 +37,7 @@ for version, mbar_gen in mbar_gens.items():
         wsum = np.linalg.norm(np.exp(mbar.Log_W_nk).sum(0) - 1.0)
         wdot = np.linalg.norm(np.exp(mbar.Log_W_nk).dot(N_k) - 1.0)
         grad_norm = np.linalg.norm(pymbar.mbar_solvers.mbar_gradient(u_kn, N_k, mbar.f_k))
-        obj = pymbar.mbar_solvers.mbar_objective(u_kn, N_k, mbar.f_k)
+        obj = pymbar.mbar_solvers.mbar_objective_and_gradient(u_kn, N_k, mbar.f_k)[0]
         timedata.append([name, version, time.time() - time0, grad_norm, wsum, wdot])
 
 

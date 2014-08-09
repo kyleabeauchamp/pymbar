@@ -132,41 +132,6 @@ def self_consistent_update(u_kn, N_k, f_k):
     return -1. * logsumexp(-log_denominator_n - u_kn, axis=1)
 
 
-def mbar_objective_fast(Q_kn, N_k, f_k):
-    """Objective function that, when minimized, solves MBAR problem.
-
-    Parameters
-    ----------
-    Q_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
-        Unnormalized probabilities.  Q_kn = exp(-u_kn)
-    N_k : np.ndarray, shape=(n_states), dtype='int'
-        The number of samples in each state
-    f_k : np.ndarray, shape=(n_states), dtype='float'
-        The reduced free energies of each state
-
-    Returns
-    -------
-    obj : float
-        Objective function.
-
-    Notes
-    -----
-    This objective function is essentially a doubly-summed partition function and is
-    quite sensitive to precision loss from both overflow and underflow.  For optimal
-    results, u_kn should be preconditioned by subtracting out a `n` dependent
-    vector.
-
-    This "fast" version works by performing matrix operations using Q_kn.
-    This may have slightly reduced precision as compared to the non-fast
-    version, which uses logsumexp operations instead of matrix
-    multiplication.
-    """
-    Q_kn, N_k, f_k = validate_inputs(Q_kn, N_k, f_k)
-
-    c_k_inv = np.exp(f_k)
-    return -N_k.dot(f_k) + np.log(Q_kn.T.dot(c_k_inv * N_k)).sum()
-
-
 def mbar_gradient_fast(Q_kn, N_k, f_k):
     """Gradient of mbar_objective()
 
@@ -186,7 +151,7 @@ def mbar_gradient_fast(Q_kn, N_k, f_k):
 
     Notes
     -----
-    This is equation C6 in the original MBAR paper.
+    This is equation C6 in the JCP MBAR paper.
 
     This "fast" version works by performing matrix operations using Q_kn.
     This may have slightly reduced precision as compared to the non-fast
@@ -232,6 +197,9 @@ def mbar_objective_and_gradient_fast(Q_kn, N_k, f_k):
     This may have slightly reduced precision as compared to the non-fast
     version, which uses logsumexp operations instead of matrix
     multiplication.
+    
+    The gradient is equation C6 in the JCP MBAR paper; the objective
+    function is its integral.    
     """
     Q_kn, N_k, f_k = validate_inputs(Q_kn, N_k, f_k)
 
@@ -246,39 +214,6 @@ def mbar_objective_and_gradient_fast(Q_kn, N_k, f_k):
     obj = -N_k.dot(f_k) + np.log(denominator_n).sum()
 
     return obj, grad
-
-
-def mbar_objective(u_kn, N_k, f_k):
-    """Objective function that, when minimized, solves MBAR problem.
-
-    Parameters
-    ----------
-    u_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
-        The reduced potential energies, i.e. -log unnormalized probabilities
-    N_k : np.ndarray, shape=(n_states), dtype='int'
-        The number of samples in each state
-    f_k : np.ndarray, shape=(n_states), dtype='float'
-        The reduced free energies of each state
-
-    Returns
-    -------
-    obj : float
-        Objective function.
-
-    Notes
-    -----
-    This objective function is essentially a doubly-summed partition function and is
-    quite sensitive to precision loss from both overflow and underflow.  For optimal
-    results, u_kn should be preconditioned by subtracting out a `n` dependent
-    vector.
-
-    This function uses math.fsum for the outermost sum and logsumexp for
-    the inner sum.
-    """
-    u_kn, N_k, f_k = validate_inputs(u_kn, N_k, f_k)
-
-    obj = math.fsum(logsumexp(f_k - u_kn.T, b=N_k, axis=1)) - N_k.dot(f_k)
-    return obj
 
 
 def mbar_gradient(u_kn, N_k, f_k):
@@ -300,7 +235,7 @@ def mbar_gradient(u_kn, N_k, f_k):
 
     Notes
     -----
-    This is equation C6 in the original MBAR paper.
+    This is equation C6 in the JCP MBAR paper.
     """
     u_kn, N_k, f_k = validate_inputs(u_kn, N_k, f_k)
 
@@ -329,6 +264,18 @@ def mbar_objective_and_gradient(u_kn, N_k, f_k):
     grad : np.ndarray, dtype=float, shape=(n_states)
         Gradient of objective function
 
+    Notes
+    -----
+    This objective function is essentially a doubly-summed partition function and is
+    quite sensitive to precision loss from both overflow and underflow. For optimal
+    results, u_kn can be preconditioned by subtracting out a `n` dependent
+    vector.
+
+    More optimal precision, the objective function uses math.fsum for the
+    outermost sum and logsumexp for the inner sum.
+    
+    The gradient is equation C6 in the JCP MBAR paper; the objective
+    function is its integral.
     """
     u_kn, N_k, f_k = validate_inputs(u_kn, N_k, f_k)
 
