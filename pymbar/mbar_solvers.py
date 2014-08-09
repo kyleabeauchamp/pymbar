@@ -10,6 +10,8 @@ try:  # numexpr used in logsumexp when available.
 except ImportError:
     HAVE_NUMEXPR = False
 
+# This is the default protocol (ordered list of minimization algorithms / NLE solvers) for solving the MBAR equations.
+DEFAULT_SOLVER_PROTOCOL = [dict(method="L-BFGS-B", fast=True), dict(method="L-BFGS-B", fast=True), dict(method="hybr", fast=True), dict(method="hybr")]
 
 def logsumexp(a, axis=None, b=None, use_numexpr=True):
     """Compute the log of the sum of exponentials of input elements.
@@ -528,7 +530,6 @@ def solve_mbar_once(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="
     unpad_second_arg = lambda obj, grad: (obj, grad[1:])  # Helper function drops first element of gradient
     
     if not fast:
-        obj = lambda x: mbar_objective(u_kn_nonzero, N_k_nonzero, pad(x))  # Objective function
         grad = lambda x: mbar_gradient(u_kn_nonzero, N_k_nonzero, pad(x))[1:]  # Objective function gradient
         grad_and_obj = lambda x: unpad_second_arg(*mbar_objective_and_gradient(u_kn_nonzero, N_k_nonzero, pad(x)))  # Objective function gradient
         hess = lambda x: mbar_hessian(u_kn_nonzero, N_k_nonzero, pad(x))[1:][:, 1:]  # Hessian of objective function        
@@ -536,7 +537,6 @@ def solve_mbar_once(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="
         jac = hess
     else:
         Q_kn_nonzero = np.exp(-u_kn_nonzero)
-        obj = lambda x: mbar_objective_fast(Q_kn_nonzero, N_k_nonzero, pad(x))  # Objective function
         grad = lambda x: mbar_gradient_fast(Q_kn_nonzero, N_k_nonzero, pad(x))[1:]  # Objective function gradient
         grad_and_obj = lambda x: unpad_second_arg(*mbar_objective_and_gradient_fast(Q_kn_nonzero, N_k_nonzero, pad(x)))  # Objective function gradient
         hess = lambda x: mbar_hessian_fast(Q_kn_nonzero, N_k_nonzero, pad(x))[1:][:, 1:]  # Hessian of objective function
@@ -597,7 +597,7 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, solver_protocol=None):
     equations using the current guess.
     """    
     if solver_protocol is None:
-        solver_protocol = [dict(method="L-BFGS-B", fast=True), dict(method="L-BFGS-B", fast=True), dict(method="hybr", fast=True), dict(method="hybr")]
+        solver_protocol = DEFAULT_SOLVER_PROTOCOL
     
     all_results = []
     for k, options in enumerate(solver_protocol):
