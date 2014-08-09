@@ -471,6 +471,7 @@ def solve_mbar_once(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="
     pad = lambda x: np.pad(x, (1, 0), mode='constant')  # Helper function inserts zero before first element
     unpad_second_arg = lambda obj, grad: (obj, grad[1:])  # Helper function drops first element of gradient
 
+    # Create objective functions / nonlinear equations to send to scipy.optimize, fixing f_0 = 0
     if not fast:
         grad = lambda x: mbar_gradient(u_kn_nonzero, N_k_nonzero, pad(x))[1:]  # Objective function gradient
         grad_and_obj = lambda x: unpad_second_arg(*mbar_objective_and_gradient(u_kn_nonzero, N_k_nonzero, pad(x)))  # Objective function gradient
