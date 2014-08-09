@@ -415,6 +415,37 @@ def mbar_W_nk_fast(Q_kn, N_k, f_k):
     return c_k_inv * Q_kn.T / denominator_n[:, np.newaxis]
 
 
+def precondition_u_kn(u_kn, N_k, f_k):
+    """Subtract a sample-dependent constant from u_kn to improve precision
+
+    Parameters
+    ----------
+    u_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
+        The reduced potential energies, i.e. -log unnormalized probabilities
+    N_k : np.ndarray, shape=(n_states), dtype='int'
+        The number of samples in each state
+    f_k : np.ndarray, shape=(n_states), dtype='float'
+        The reduced free energies of each state
+
+    Returns
+    -------
+    u_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
+        The reduced potential energies, i.e. -log unnormalized probabilities
+
+    Notes
+    -----
+    Returns u_kn - x_n, where x_n is based on the current estimate of f_k.
+    Upon subtraction of x_n, the MBAR objective function changes by an
+    additive constant, but its derivatives remain unchanged.  We choose
+    x_n such that the current objective function value is zero, which
+    should give maximal precision in the objective function.
+    """
+    u_kn, N_k, f_k = validate_inputs(u_kn, N_k, f_k)
+    u_kn = u_kn - u_kn.min(0)
+    u_kn += (logsumexp(f_k - u_kn.T, b=N_k, axis=1)) - N_k.dot(f_k) / float(N_k.sum())
+    return u_kn
+
+
 def solve_mbar_once(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr", tol=1E-20, options=None):
     """Solve MBAR self-consistent equations using some form of equation solver.
 
@@ -459,14 +490,8 @@ def solve_mbar_once(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="
     multiple times to polish the result.  `solve_mbar()` facilitates this.
     """
     u_kn_nonzero, N_k_nonzero, f_k_nonzero = validate_inputs(u_kn_nonzero, N_k_nonzero, f_k_nonzero)
-
-    u_kn_nonzero = u_kn_nonzero - u_kn_nonzero.min(0)  # This should improve precision of the scalar objective function.
-    # Subtract off a constant b_n from the reduced potentials such that the objective function at the current guess of f_k is zero
-    # The gradient and hessians are invariant under this subtraction, but the objective function is offset by a constant
-    # The key advantage of having f(x) ~ 0 is improved numerical precision
-    u_kn_nonzero += (logsumexp(f_k_nonzero - u_kn_nonzero.T, b=N_k_nonzero, axis=1)) - N_k_nonzero.dot(f_k_nonzero) / float(N_k_nonzero.sum())
-
     f_k_nonzero = f_k_nonzero - f_k_nonzero[0]  # Work with reduced dimensions with f_k[0] := 0
+    u_kn_nonzero = precondition_u_kn(u_kn_nonzero, N_k_nonzero, f_k_nonzero)
 
     pad = lambda x: np.pad(x, (1, 0), mode='constant')  # Helper function inserts zero before first element
     unpad_second_arg = lambda obj, grad: (obj, grad[1:])  # Helper function drops first element of gradient
