@@ -13,6 +13,7 @@ except ImportError:
 # This is the default protocol (ordered list of minimization algorithms / NLE solvers) for solving the MBAR equations.
 DEFAULT_SOLVER_PROTOCOL = [dict(method="L-BFGS-B", fast=True), dict(method="L-BFGS-B", fast=True), dict(method="hybr", fast=True), dict(method="hybr")]
 
+
 def logsumexp(a, axis=None, b=None, use_numexpr=True):
     """Compute the log of the sum of exponentials of input elements.
 
@@ -76,7 +77,7 @@ def logsumexp(a, axis=None, b=None, use_numexpr=True):
 
 def validate_inputs(u_kn, N_k, f_k):
     """Check types and return inputs for MBAR calculations.
-    
+
     Parameters
     ----------
     u_kn or q_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
@@ -96,16 +97,17 @@ def validate_inputs(u_kn, N_k, f_k):
         The reduced free energies of each state
     """
     n_states, n_samples = u_kn.shape
-    
+
     u_kn = ensure_type(u_kn, 'float', 2, "u_kn or Q_kn", shape=(n_states, n_samples))
     N_k = ensure_type(N_k, 'float', 1, "N_k", shape=(n_states,), warn_on_cast=False)  # Autocast to float because will be eventually used in float calculations.
     f_k = ensure_type(f_k, 'float', 1, "f_k", shape=(n_states,))
-    
+
     return u_kn, N_k, f_k
+
 
 def self_consistent_update(u_kn, N_k, f_k):
     """Return an improved guess for the dimensionless free energies
-    
+
     Parameters
     ----------
     u_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
@@ -119,7 +121,7 @@ def self_consistent_update(u_kn, N_k, f_k):
     -------
     f_k : np.ndarray, shape=(n_states), dtype='float'
         Updated estimate of f_k
-    
+
     Notes
     -----
     Equation C3 in MBAR JCP paper.
@@ -132,7 +134,7 @@ def self_consistent_update(u_kn, N_k, f_k):
 
 def mbar_objective_fast(Q_kn, N_k, f_k):
     """Objective function that, when minimized, solves MBAR problem.
-    
+
     Parameters
     ----------
     Q_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
@@ -146,14 +148,14 @@ def mbar_objective_fast(Q_kn, N_k, f_k):
     -------
     obj : float
         Objective function.
-    
+
     Notes
     -----
     This objective function is essentially a doubly-summed partition function and is
     quite sensitive to precision loss from both overflow and underflow.  For optimal
     results, u_kn should be preconditioned by subtracting out a `n` dependent
     vector.  
-    
+
     This "fast" version works by performing matrix operations using Q_kn.
     This may have slightly reduced precision as compared to the non-fast
     version, which uses logsumexp operations instead of matrix
@@ -167,7 +169,7 @@ def mbar_objective_fast(Q_kn, N_k, f_k):
 
 def mbar_gradient_fast(Q_kn, N_k, f_k):
     """Gradient of mbar_objective()
-    
+
     Parameters
     ----------
     Q_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
@@ -181,21 +183,21 @@ def mbar_gradient_fast(Q_kn, N_k, f_k):
     -------
     grad : np.ndarray, dtype=float, shape=(n_states)
         Gradient of objective function
-    
+
     Notes
     -----
     This is equation C6 in the original MBAR paper.
-    
+
     This "fast" version works by performing matrix operations using Q_kn.
     This may have slightly reduced precision as compared to the non-fast
     version, which uses logsumexp operations instead of matrix
     multiplication.    
     """
     Q_kn, N_k, f_k = validate_inputs(Q_kn, N_k, f_k)
-    
+
     c_k_inv = np.exp(f_k)
     denom_n = Q_kn.T.dot(N_k * c_k_inv)
-    
+
     num = Q_kn.dot(denom_n ** -1.)
 
     grad = N_k * (1.0 - c_k_inv * num)
@@ -204,10 +206,9 @@ def mbar_gradient_fast(Q_kn, N_k, f_k):
     return grad
 
 
-
 def mbar_objective_and_gradient_fast(Q_kn, N_k, f_k):
     """Calculates both objective function and gradient for MBAR.
-    
+
     Parameters
     ----------
     Q_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
@@ -223,10 +224,10 @@ def mbar_objective_and_gradient_fast(Q_kn, N_k, f_k):
         Objective function
     grad : np.ndarray, dtype=float, shape=(n_states)
         Gradient of objective function
-    
+
     Notes
     -----
-    
+
     This "fast" version works by performing matrix operations using Q_kn.
     This may have slightly reduced precision as compared to the non-fast
     version, which uses logsumexp operations instead of matrix
@@ -236,21 +237,20 @@ def mbar_objective_and_gradient_fast(Q_kn, N_k, f_k):
 
     c_k_inv = np.exp(f_k)
     denom_n = Q_kn.T.dot(N_k * c_k_inv)
-    
+
     num = Q_kn.dot(denom_n ** -1.)
 
     grad = N_k * (1.0 - c_k_inv * num)
     grad *= -1.
 
-    obj =  -N_k.dot(f_k) + np.log(denom_n).sum()
+    obj = -N_k.dot(f_k) + np.log(denom_n).sum()
 
     return obj, grad
 
 
-
 def mbar_objective(u_kn, N_k, f_k):
     """Objective function that, when minimized, solves MBAR problem.
-    
+
     Parameters
     ----------
     u_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
@@ -264,14 +264,14 @@ def mbar_objective(u_kn, N_k, f_k):
     -------
     obj : float
         Objective function.
-    
+
     Notes
     -----
     This objective function is essentially a doubly-summed partition function and is
     quite sensitive to precision loss from both overflow and underflow.  For optimal
     results, u_kn should be preconditioned by subtracting out a `n` dependent
     vector.  
-    
+
     This function uses math.fsum for the outermost sum and logsumexp for
     the inner sum.
     """
@@ -283,7 +283,7 @@ def mbar_objective(u_kn, N_k, f_k):
 
 def mbar_gradient(u_kn, N_k, f_k):
     """Gradient of MBAR objective function.  
-    
+
     Parameters
     ----------
     u_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
@@ -297,7 +297,7 @@ def mbar_gradient(u_kn, N_k, f_k):
     -------
     grad : np.ndarray, dtype=float, shape=(n_states)
         Gradient of mbar_objective
-    
+
     Notes
     -----
     This is equation C6 in the original MBAR paper.
@@ -309,10 +309,9 @@ def mbar_gradient(u_kn, N_k, f_k):
     return -1 * N_k * (1.0 - np.exp(f_k + W_logsum))
 
 
-
 def mbar_objective_and_gradient(u_kn, N_k, f_k):
     """Calculates both objective function and gradient for MBAR.
-    
+
     Parameters
     ----------
     u_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
@@ -336,16 +335,15 @@ def mbar_objective_and_gradient(u_kn, N_k, f_k):
     log_denominator_n = logsumexp(f_k - u_kn.T, b=N_k, axis=1)
     W_logsum = logsumexp(-log_denominator_n - u_kn, axis=1)
     grad = -1 * N_k * (1.0 - np.exp(f_k + W_logsum))
-    
-    obj = math.fsum(log_denominator_n) - N_k.dot(f_k)
-    
-    return obj, grad
 
+    obj = math.fsum(log_denominator_n) - N_k.dot(f_k)
+
+    return obj, grad
 
 
 def mbar_hessian(u_kn, N_k, f_k):
     """Hessian of MBAR objective function.
-    
+
     Parameters
     ----------
     u_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
@@ -359,7 +357,7 @@ def mbar_hessian(u_kn, N_k, f_k):
     -------
     H : np.ndarray, dtype=float, shape=(n_states, n_states)
         Hessian of mbar objective function.
-    
+
     Notes
     -----
     Equation (C9) in JCP MBAR paper.
@@ -367,19 +365,18 @@ def mbar_hessian(u_kn, N_k, f_k):
     u_kn, N_k, f_k = validate_inputs(u_kn, N_k, f_k)
 
     W = mbar_W_nk(u_kn, N_k, f_k)
-    
+
     H = W.T.dot(W)
     H *= N_k
     H *= N_k[:, np.newaxis]
     H -= np.diag(W.sum(0) * N_k)
-    
-    return -1.0 * H
 
+    return -1.0 * H
 
 
 def mbar_W_nk(u_kn, N_k, f_k):
     """Calculate the weight matrix.
-    
+
     Parameters
     ----------
     u_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
@@ -393,22 +390,21 @@ def mbar_W_nk(u_kn, N_k, f_k):
     -------
     W_nk : np.ndarray, dtype='float', shape=(n_samples, n_states)
         The normalized weights.
-    
+
     Notes
     -----
     Equation (9) in JCP MBAR paper.
     """
     u_kn, N_k, f_k = validate_inputs(u_kn, N_k, f_k)
-    
-    log_denominator_n = logsumexp(f_k - u_kn.T, b=N_k, axis=1)
-    W = np.exp(f_k -u_kn.T - log_denominator_n[:, np.newaxis])
-    return W
 
+    log_denominator_n = logsumexp(f_k - u_kn.T, b=N_k, axis=1)
+    W = np.exp(f_k - u_kn.T - log_denominator_n[:, np.newaxis])
+    return W
 
 
 def mbar_hessian_fast(Q_kn, N_k, f_k):
     """Hessian of MBAR objective function (fast).
-    
+
     Parameters
     ----------
     Q_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
@@ -422,11 +418,11 @@ def mbar_hessian_fast(Q_kn, N_k, f_k):
     -------
     H : np.ndarray, dtype=float, shape=(n_states, n_states)
         Hessian of mbar objective function.
-    
+
     Notes
     -----
     Equation (C9) in JCP MBAR paper.
-    
+
     This "fast" version works by performing matrix operations using Q_kn.
     This may have slightly reduced precision as compared to the non-fast
     version, which uses logsumexp operations instead of matrix
@@ -435,19 +431,18 @@ def mbar_hessian_fast(Q_kn, N_k, f_k):
     Q_kn, N_k, f_k = validate_inputs(Q_kn, N_k, f_k)
 
     W = mbar_W_nk_fast(Q_kn, N_k, f_k)
-    
+
     H = W.T.dot(W)
     H *= N_k
     H *= N_k[:, np.newaxis]
     H -= np.diag(W.sum(0) * N_k)
-    
-    return -1.0 * H
 
+    return -1.0 * H
 
 
 def mbar_W_nk_fast(Q_kn, N_k, f_k):
     """Calculate the weight matrix.
-    
+
     Parameters
     ----------
     Q_kn : np.ndarray, shape=(n_states, n_samples), dtype='float'
@@ -461,7 +456,7 @@ def mbar_W_nk_fast(Q_kn, N_k, f_k):
     -------
     W_nk : np.ndarray, dtype='float', shape=(n_samples, n_states)
         The normalized weights.
-    
+
     Notes
     -----
     Equation (9) in JCP MBAR paper.
@@ -475,7 +470,7 @@ def mbar_W_nk_fast(Q_kn, N_k, f_k):
 
 def solve_mbar_once(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr", tol=1E-20, options=None):
     """Solve MBAR self-consistent equations using some form of equation solver.
-    
+
     Parameters
     ----------
     u_kn_nonzero : np.ndarray, shape=(n_states, n_samples), dtype='float'
@@ -504,7 +499,7 @@ def solve_mbar_once(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="
     results : dict
         Dictionary containing entire results of optimization routine, may
         be useful when debugging convergence.
-    
+
     Notes
     -----
     This function requires that N_k_nonzero > 0--that is, you should have
@@ -512,12 +507,12 @@ def solve_mbar_once(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="
     Internally, this function works in a reduced coordinate system defined
     by subtracting off the first component of f_k and fixing that component
     to be zero.  
-    
+
     For fast but precise convergence, we recommend calling this function
     multiple times to polish the result.  `solve_mbar()` facilitates this.
     """
     u_kn_nonzero, N_k_nonzero, f_k_nonzero = validate_inputs(u_kn_nonzero, N_k_nonzero, f_k_nonzero)
-    
+
     u_kn_nonzero = u_kn_nonzero - u_kn_nonzero.min(0)  # This should improve precision of the scalar objective function.
     # Subtract off a constant b_n from the reduced potentials such that the objective function at the current guess of f_k is zero
     # The gradient and hessians are invariant under this subtraction, but the objective function is offset by a constant
@@ -528,11 +523,11 @@ def solve_mbar_once(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="
 
     pad = lambda x: np.pad(x, (1, 0), mode='constant')  # Helper function inserts zero before first element
     unpad_second_arg = lambda obj, grad: (obj, grad[1:])  # Helper function drops first element of gradient
-    
+
     if not fast:
         grad = lambda x: mbar_gradient(u_kn_nonzero, N_k_nonzero, pad(x))[1:]  # Objective function gradient
         grad_and_obj = lambda x: unpad_second_arg(*mbar_objective_and_gradient(u_kn_nonzero, N_k_nonzero, pad(x)))  # Objective function gradient
-        hess = lambda x: mbar_hessian(u_kn_nonzero, N_k_nonzero, pad(x))[1:][:, 1:]  # Hessian of objective function        
+        hess = lambda x: mbar_hessian(u_kn_nonzero, N_k_nonzero, pad(x))[1:][:, 1:]  # Hessian of objective function
         eqns = grad
         jac = hess
     else:
@@ -543,8 +538,7 @@ def solve_mbar_once(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="
         eqns = grad
         jac = hess
 
-
-    if method in ["L-BFGS-B", "dogleg", "CG", "BFGS", "Newton-CG", "TNC", "trust-ncg", "SLSQP"]:        
+    if method in ["L-BFGS-B", "dogleg", "CG", "BFGS", "Newton-CG", "TNC", "trust-ncg", "SLSQP"]:
         results = scipy.optimize.minimize(grad_and_obj, f_k_nonzero[1:], jac=True, hess=hess, method=method, tol=tol, options=options)
     else:
         results = scipy.optimize.root(eqns, f_k_nonzero[1:], jac=jac, method=method, tol=tol, options=options)
@@ -555,7 +549,7 @@ def solve_mbar_once(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="
 
 def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, solver_protocol=None):
     """Solve MBAR self-consistent equations using some sequence of equation solvers.
-    
+
     Parameters
     ----------
     u_kn_nonzero : np.ndarray, shape=(n_states, n_samples), dtype='float'
@@ -581,7 +575,7 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, solver_protocol=None):
         List of results from each step of solver_protocol.  Each element in
         list contains the results dictionary from solve_mbar_single() 
         for the corresponding step.
-    
+
     Notes
     -----
     This function requires that N_k_nonzero > 0--that is, you should have
@@ -589,19 +583,19 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, solver_protocol=None):
     Internally, this function works in a reduced coordinate system defined
     by subtracting off the first component of f_k and fixing that component
     to be zero.  
-    
+
     This function calls `solve_mbar_once()` multiple times to achieve
     converged results.  Generally, a single call to solve_mbar_single()
     will not give fully converged answers because of limited numerical precision.
     Each call to `solve_mbar_once()` re-conditions the nonlinear
     equations using the current guess.
-    """    
+    """
     if solver_protocol is None:
         solver_protocol = DEFAULT_SOLVER_PROTOCOL
-    
+
     all_results = []
     for k, options in enumerate(solver_protocol):
-        f_k_nonzero, results = solve_mbar_once(u_kn_nonzero, N_k_nonzero, f_k_nonzero, **options)    
+        f_k_nonzero, results = solve_mbar_once(u_kn_nonzero, N_k_nonzero, f_k_nonzero, **options)
         all_results.append(results)
 
     return f_k_nonzero, all_results
