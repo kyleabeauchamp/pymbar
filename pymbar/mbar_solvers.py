@@ -196,11 +196,11 @@ def mbar_gradient_fast(Q_kn, N_k, f_k):
     Q_kn, N_k, f_k = validate_inputs(Q_kn, N_k, f_k)
 
     c_k_inv = np.exp(f_k)
-    denom_n = Q_kn.T.dot(N_k * c_k_inv)
+    denominator_n = Q_kn.T.dot(N_k * c_k_inv)
 
-    num = Q_kn.dot(denom_n ** -1.)
+    numerator_k = Q_kn.dot(denominator_n ** -1.)
 
-    grad = N_k * (1.0 - c_k_inv * num)
+    grad = N_k * (1.0 - c_k_inv * numerator_k)
     grad *= -1.
 
     return grad
@@ -236,14 +236,14 @@ def mbar_objective_and_gradient_fast(Q_kn, N_k, f_k):
     Q_kn, N_k, f_k = validate_inputs(Q_kn, N_k, f_k)
 
     c_k_inv = np.exp(f_k)
-    denom_n = Q_kn.T.dot(N_k * c_k_inv)
+    denominator_n = Q_kn.T.dot(N_k * c_k_inv)
 
-    num = Q_kn.dot(denom_n ** -1.)
+    numerator_k = Q_kn.dot(denominator_n ** -1.)
 
-    grad = N_k * (1.0 - c_k_inv * num)
+    grad = N_k * (1.0 - c_k_inv * numerator_k)
     grad *= -1.
 
-    obj = -N_k.dot(f_k) + np.log(denom_n).sum()
+    obj = -N_k.dot(f_k) + np.log(denominator_n).sum()
 
     return obj, grad
 
@@ -464,8 +464,8 @@ def mbar_W_nk_fast(Q_kn, N_k, f_k):
     Q_kn, N_k, f_k = validate_inputs(Q_kn, N_k, f_k)
 
     c_k_inv = np.exp(f_k)
-    denom_n = Q_kn.T.dot(N_k * c_k_inv)
-    return c_k_inv * Q_kn.T / denom_n[:, np.newaxis]
+    denominator_n = Q_kn.T.dot(N_k * c_k_inv)
+    return c_k_inv * Q_kn.T / denominator_n[:, np.newaxis]
 
 
 def solve_mbar_once(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="hybr", tol=1E-20, options=None):
