@@ -23,8 +23,6 @@ def load_exponentials(n_states, n_samples):
 
 
 solver_protocol = None
-#mbar_gens = {"new":lambda u_kn, N_k: pymbar.MBAR(u_kn, N_k, solver_protocol=solver_protocol)}
-#mbar_gens = {"old":lambda u_kn, N_k: pymbar.old_mbar.MBAR(u_kn, N_k)}
 mbar_gens = {"new":lambda u_kn, N_k: pymbar.MBAR(u_kn, N_k), "old":lambda u_kn, N_k: pymbar.old_mbar.MBAR(u_kn, N_k)}
 systems = [lambda : load_exponentials(25, 100), lambda : load_exponentials(100, 100), lambda : load_exponentials(250, 250),
 lambda : load_oscillators(25, 100), lambda : load_oscillators(100, 100), lambda : load_oscillators(250, 250),
