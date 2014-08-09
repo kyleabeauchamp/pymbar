@@ -570,5 +570,6 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, solver_protocol=None):
     for k, options in enumerate(solver_protocol):
         f_k_nonzero, results = solve_mbar_once(u_kn_nonzero, N_k_nonzero, f_k_nonzero, **options)
         all_results.append(results)
-
+    
+    print("Final gradient norm: %.3g" % np.linalg.norm(mbar_gradient(u_kn_nonzero, N_k_nonzero, f_k_nonzero)))
     return f_k_nonzero, all_results
