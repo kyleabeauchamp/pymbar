@@ -41,5 +41,5 @@ for version, mbar_gen in mbar_gens.items():
         timedata.append([name, version, time.time() - time0, grad_norm, wsum, wdot])
 
 
-timedata = pd.DataFrame(timedata, columns=["name", "version", "time", "grad", "|W.sum(0) - 1|", "|W.dot(N_k) - 1|"])
+timedata = pd.DataFrame(timedata, columns=["name", "version", "time", "|grad|", "|W.sum(0) - 1|", "|W.dot(N_k) - 1|"])
 print timedata.to_string(float_format=lambda x: "%.3g" % x)
