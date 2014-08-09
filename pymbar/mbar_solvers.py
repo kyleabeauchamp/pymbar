@@ -23,7 +23,7 @@ def logsumexp(a, axis=None, b=None, use_numexpr=True):
         Input array.
     axis : None or int, optional, default=None
         Axis or axes over which the sum is taken. By default `axis` is None,
-        and all elements are summed. 
+        and all elements are summed.
     b : array-like, optional
         Scaling factor for exp(`a`) must be of the same shape as `a` or
         broadcastable to `a`.
@@ -154,7 +154,7 @@ def mbar_objective_fast(Q_kn, N_k, f_k):
     This objective function is essentially a doubly-summed partition function and is
     quite sensitive to precision loss from both overflow and underflow.  For optimal
     results, u_kn should be preconditioned by subtracting out a `n` dependent
-    vector.  
+    vector.
 
     This "fast" version works by performing matrix operations using Q_kn.
     This may have slightly reduced precision as compared to the non-fast
@@ -191,7 +191,7 @@ def mbar_gradient_fast(Q_kn, N_k, f_k):
     This "fast" version works by performing matrix operations using Q_kn.
     This may have slightly reduced precision as compared to the non-fast
     version, which uses logsumexp operations instead of matrix
-    multiplication.    
+    multiplication.
     """
     Q_kn, N_k, f_k = validate_inputs(Q_kn, N_k, f_k)
 
@@ -270,7 +270,7 @@ def mbar_objective(u_kn, N_k, f_k):
     This objective function is essentially a doubly-summed partition function and is
     quite sensitive to precision loss from both overflow and underflow.  For optimal
     results, u_kn should be preconditioned by subtracting out a `n` dependent
-    vector.  
+    vector.
 
     This function uses math.fsum for the outermost sum and logsumexp for
     the inner sum.
@@ -282,7 +282,7 @@ def mbar_objective(u_kn, N_k, f_k):
 
 
 def mbar_gradient(u_kn, N_k, f_k):
-    """Gradient of MBAR objective function.  
+    """Gradient of MBAR objective function.
 
     Parameters
     ----------
@@ -426,7 +426,7 @@ def mbar_hessian_fast(Q_kn, N_k, f_k):
     This "fast" version works by performing matrix operations using Q_kn.
     This may have slightly reduced precision as compared to the non-fast
     version, which uses logsumexp operations instead of matrix
-    multiplication.    
+    multiplication.
     """
     Q_kn, N_k, f_k = validate_inputs(Q_kn, N_k, f_k)
 
@@ -506,7 +506,7 @@ def solve_mbar_once(u_kn_nonzero, N_k_nonzero, f_k_nonzero, fast=False, method="
     already dropped all the states for which you have no samples.
     Internally, this function works in a reduced coordinate system defined
     by subtracting off the first component of f_k and fixing that component
-    to be zero.  
+    to be zero.
 
     For fast but precise convergence, we recommend calling this function
     multiple times to polish the result.  `solve_mbar()` facilitates this.
@@ -560,12 +560,12 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, solver_protocol=None):
     f_k_nonzero : np.ndarray, shape=(n_states), dtype='float'
         The reduced free energies for the nonempty states
     solver_protocol: list(dict()), optional, default=None
-        Optional list of dictionaries of steps in solver protocol.  
-        If None, the default protocol of [dict(method="L-BFGS-B", fast=True), 
-        dict(method="L-BFGS-B", fast=True), 
+        Optional list of dictionaries of steps in solver protocol.
+        If None, the default protocol of [dict(method="L-BFGS-B", fast=True),
+        dict(method="L-BFGS-B", fast=True),
         dict(method="hybr", fast=True), dict(method="hybr")]
         will be used.  This achieves optimal precision and convergence in
-        the minimium amount of time.  
+        the minimium amount of time.
 
     Returns
     -------
@@ -573,7 +573,7 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, solver_protocol=None):
         The converged reduced free energies.
     all_results : list(dict())
         List of results from each step of solver_protocol.  Each element in
-        list contains the results dictionary from solve_mbar_single() 
+        list contains the results dictionary from solve_mbar_single()
         for the corresponding step.
 
     Notes
@@ -582,7 +582,7 @@ def solve_mbar(u_kn_nonzero, N_k_nonzero, f_k_nonzero, solver_protocol=None):
     already dropped all the states for which you have no samples.
     Internally, this function works in a reduced coordinate system defined
     by subtracting off the first component of f_k and fixing that component
-    to be zero.  
+    to be zero.
 
     This function calls `solve_mbar_once()` multiple times to achieve
     converged results.  Generally, a single call to solve_mbar_single()
