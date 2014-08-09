@@ -86,7 +86,7 @@ class MBAR:
     """
     #=========================================================================
 
-    def __init__(self, u_kn, N_k, maximum_iterations=10000, relative_tolerance=1.0e-7, verbose=False, initial_f_k=None, solver_protocol=None, initialize='zeros', x_kindices=None):
+    def __init__(self, u_kn, N_k, maximum_iterations=10000, relative_tolerance=1.0e-7, verbose=False, initial_f_k=None, solver_protocol=None, initialize='zeros', x_kindices=None, **kwargs):
         """Initialize multistate Bennett acceptance ratio (MBAR) on a set of simulation data.
 
         Upon initialization, the dimensionless free energies for all states are computed.
@@ -166,6 +166,8 @@ class MBAR:
         >>> mbar = MBAR(u_kn, N_k)
 
         """
+        for key, val in kwargs.items():
+            print("Warning: parameter %s=%s is unrecognized and unused." % (key, val))
 
         # Store local copies of necessary data.
         # N_k[k] is the number of samples from state k, some of which might be zero.
@@ -1403,7 +1405,7 @@ class MBAR:
         >>> u_n = u_kn[0, :]
         >>> # Sort into nbins equally-populated bins
         >>> nbins = 10 # number of equally-populated bins to use
-        >>> import np
+        >>> import numpy as np
         >>> N_tot = N_k.sum()
         >>> x_n_sorted = np.sort(x_n) # unroll to n-indices
         >>> bins = np.append(x_n_sorted[0::(N_tot/nbins)], x_n_sorted.max()+0.1)
@@ -1978,3 +1980,23 @@ class MBAR:
         self.f_k[:] = self.f_k[:] - self.f_k[0]
 
         return
+
+
+    def _computeUnnormalizedLogWeights(self, u_n):
+        """
+        Return unnormalized log weights.
+
+        REQUIRED ARGUMENTS
+          u_n (N np float64 array) - reduced potential energies at single state
+
+        OPTIONAL ARGUMENTS
+
+        RETURN VALUES
+          log_w_n (N array) - unnormalized log weights of each of a number of states
+
+        REFERENCE
+          'log weights' here refers to \log [ \sum_{k=1}^K N_k exp[f_k - (u_k(x_n) - u(x_n)] ]
+        """
+        print("SHAPE")
+        print(u_n.shape)
+        return mbar_solvers.logsumexp(self.f_k - u_n[:, np.newaxis] - self.u_kn.T, b=self.N_k, axis=1)
