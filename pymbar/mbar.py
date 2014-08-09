@@ -1997,6 +1997,4 @@ class MBAR:
         REFERENCE
           'log weights' here refers to \log [ \sum_{k=1}^K N_k exp[f_k - (u_k(x_n) - u(x_n)] ]
         """
-        print("SHAPE")
-        print(u_n.shape)
-        return mbar_solvers.logsumexp(self.f_k - u_n[:, np.newaxis] - self.u_kn.T, b=self.N_k, axis=1)
+        return -1. * mbar_solvers.logsumexp(self.f_k + u_n[:, np.newaxis] - self.u_kn.T, b=self.N_k, axis=1)
