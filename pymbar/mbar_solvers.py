@@ -240,8 +240,8 @@ def mbar_gradient(u_kn, N_k, f_k):
     u_kn, N_k, f_k = validate_inputs(u_kn, N_k, f_k)
 
     log_denominator_n = logsumexp(f_k - u_kn.T, b=N_k, axis=1)
-    W_logsum = logsumexp(-log_denominator_n - u_kn, axis=1)
-    return -1 * N_k * (1.0 - np.exp(f_k + W_logsum))
+    log_numerator_k = logsumexp(-log_denominator_n - u_kn, axis=1)
+    return -1 * N_k * (1.0 - np.exp(f_k + log_numerator_k))
 
 
 def mbar_objective_and_gradient(u_kn, N_k, f_k):
@@ -280,8 +280,8 @@ def mbar_objective_and_gradient(u_kn, N_k, f_k):
     u_kn, N_k, f_k = validate_inputs(u_kn, N_k, f_k)
 
     log_denominator_n = logsumexp(f_k - u_kn.T, b=N_k, axis=1)
-    W_logsum = logsumexp(-log_denominator_n - u_kn, axis=1)
-    grad = -1 * N_k * (1.0 - np.exp(f_k + W_logsum))
+    log_numerator_k = logsumexp(-log_denominator_n - u_kn, axis=1)
+    grad = -1 * N_k * (1.0 - np.exp(f_k + log_numerator_k))
 
     obj = math.fsum(log_denominator_n) - N_k.dot(f_k)
 
